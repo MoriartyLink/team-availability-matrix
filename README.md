@@ -1,4 +1,4 @@
-##team-availability-matrix
+## team-availability-matrix
 
 Real-time availability and shift tracking for distributed teams. Immediate visibility. Zero overhead.
 
@@ -18,14 +18,14 @@ Real-time availability and shift tracking for distributed teams. Immediate visib
 
 1. **Install dependencies:**
    
-npm install 
+```bash npm install ``` 
 
 ## Architecture
 
   * src/App.tsx: Core UI matrix and state management.
 
-    src/lib/firebase.ts: Firebase initialization and Auth setup.
+  *  src/lib/firebase.ts: Firebase initialization and Auth setup.
 
-    src/lib/firebaseService.ts: Firestore read/write operations.
+  * src/lib/firebaseService.ts: Firestore read/write operations.
 
-    src/types.ts: Strict data models for Shifts, Users, and Team mapping.
+  * src/types.ts: Strict data models for Shifts, Users, and Team mapping.
