@@ -91,6 +91,7 @@ export default function App() {
   const [groupUsers, setGroupUsers] = useState<any[]>([]);
   const [groupAvailability, setGroupAvailability] = useState<any[]>([]);
   const [viewDate, setViewDate] = useState(new Date());
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   // Listen for Auth changes
   useEffect(() => {
@@ -119,7 +120,11 @@ export default function App() {
       setGroupAvailability([]);
       return;
     }
-    const unsubUsers = syncAllUsersInGroup(userProfile.groupId, setGroupUsers);
+    const unsubUsers = syncAllUsersInGroup(userProfile.groupId, (users) => {
+      setGroupUsers(users);
+      // Initialize selection if empty
+      setSelectedUserIds(prev => prev.size === 0 ? new Set(users.map((u: any) => u.uid)) : prev);
+    });
     const unsubAvail = syncGroupAvailability(userProfile.groupId, setGroupAvailability);
     return () => {
       unsubUsers();
@@ -129,6 +134,23 @@ export default function App() {
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [showMobileCalendar, setShowMobileCalendar] = useState(false);
+
+  const hours = useMemo(() => Array.from({ length: 15 }).map((_, i) => i + 7), []); // 7 AM to 10 PM
+  const todayStr = format(viewDate, 'yyyy-MM-dd');
+
+  const overlaps = useMemo(() => {
+    const counts: Record<number, number> = {};
+    hours.forEach(h => {
+      counts[h] = groupAvailability.filter((a: any) => 
+        a.date === todayStr && 
+        a.startTime === h * 60 && 
+        a.type === 'free' &&
+        (selectedUserIds.size === 0 || selectedUserIds.has(a.userId))
+      ).length;
+    });
+    return counts;
+  }, [groupAvailability, todayStr, hours, selectedUserIds]);
 
   const handleLogin = async (type: 'google' | 'email', emailData?: { email: string, pass: string, isNew: boolean }) => {
     if (isLoggingIn) return;
@@ -202,26 +224,10 @@ export default function App() {
     return <Onboarding user={fUser} onComplete={(data: any) => createProfile(fUser.uid, { ...data, email: fUser.email, avatar: fUser.photoURL })} />;
   }
 
-  const [showMobileCalendar, setShowMobileCalendar] = useState(false);
-
-  const hours = useMemo(() => Array.from({ length: 15 }).map((_, i) => i + 7), []); // 7 AM to 10 PM
-  const todayStr = format(viewDate, 'yyyy-MM-dd');
-
-  const overlaps = useMemo(() => {
-    const counts: Record<number, number> = {};
-    hours.forEach(h => {
-      counts[h] = groupAvailability.filter((a: any) => a.date === todayStr && a.startTime === h * 60 && a.type === 'free').length;
-    });
-    return counts;
-  }, [groupAvailability, todayStr, hours]);
-
   return (
     <div className="w-full h-screen bg-slate-50 text-slate-900 flex flex-col font-sans overflow-hidden">
       <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 z-40">
         <div className="flex items-center gap-4">
-           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-200">
-             <CalendarIcon className="w-4 h-4 text-white" />
-           </div>
            <h1 className="text-sm font-black uppercase tracking-widest hidden sm:block">Sync Team</h1>
         </div>
 
@@ -234,7 +240,6 @@ export default function App() {
           </button>
           <div className="text-right mr-2 hidden md:block">
             <p className="text-xs font-bold leading-tight">{userProfile.name}</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest">Active Sync</p>
           </div>
           <button 
             onClick={handleLogout}
@@ -317,7 +322,16 @@ export default function App() {
             </div>
 
             <div className="mt-8 pt-8 border-t border-slate-100">
-               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Day Summary</h3>
+               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Find Alignment</h3>
+               <AlignmentSearch 
+                 users={groupUsers} 
+                 availability={groupAvailability} 
+                 selectedUserIds={selectedUserIds}
+                 viewDate={viewDate}
+               />
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-slate-100">
                <div className="space-y-4">
                   {Object.entries(overlaps).filter(([_, count]) => (count as number) > 0).sort((a: any, b: any) => (b[1] as number) - (a[1] as number)).slice(0, 3).map(([h, count]) => (
                     <div key={h} className="flex items-center justify-between">
@@ -325,8 +339,8 @@ export default function App() {
                         <Clock className="w-3 h-3 text-emerald-500" />
                         <span className="text-[11px] font-bold text-slate-700">{h}:00 - {Number(h) + 1}:00</span>
                       </div>
-                      <Badge variant={(count as number) >= groupUsers.length * 0.7 ? "success" : "busy"}>
-                        {count} / {groupUsers.length} Free
+                      <Badge variant={(count as number) >= (selectedUserIds.size || groupUsers.length) * 0.7 ? "success" : "busy"}>
+                        {count} / {selectedUserIds.size || groupUsers.length} Free
                       </Badge>
                     </div>
                   ))}
@@ -347,6 +361,8 @@ export default function App() {
           userProfile={userProfile}
           hours={hours}
           overlaps={overlaps}
+          selectedUserIds={selectedUserIds}
+          setSelectedUserIds={setSelectedUserIds}
         />
       </main>
     </div>
@@ -585,6 +601,80 @@ function Onboarding({ user, onComplete }: any) {
   );
 }
 
+// --- Alignment Search Component ---
+
+function AlignmentSearch({ users, availability, selectedUserIds, viewDate }: any) {
+  const [selectedHour, setSelectedHour] = useState(10);
+  
+  const todayStr = format(viewDate, 'yyyy-MM-dd');
+  const relevantUsers = users.filter((u: any) => selectedUserIds.size === 0 || selectedUserIds.has(u.uid));
+  
+  const availableUsers = useMemo(() => {
+    return relevantUsers.filter((u: any) => 
+      availability.some((a: any) => a.userId === u.uid && a.date === todayStr && a.startTime === selectedHour * 60 && a.type === 'free')
+    );
+  }, [relevantUsers, availability, todayStr, selectedHour]);
+
+  const busyUsers = relevantUsers.filter((u: any) => !availableUsers.find((au: any) => au.uid === u.uid));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <div className="flex-grow p-2 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-2">
+          <Clock className="w-4 h-4 text-slate-400" />
+          <select 
+            value={selectedHour}
+            onChange={(e) => setSelectedHour(Number(e.target.value))}
+            className="bg-transparent text-xs font-bold focus:outline-none w-full"
+          >
+            {Array.from({ length: 15 }).map((_, i) => (
+              <option key={i + 7} value={i + 7}>{i + 7}:00 - {i + 8}:00</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Alignment Status</span>
+          <Badge variant={availableUsers.length === relevantUsers.length ? 'success' : 'busy'}>
+            {availableUsers.length} / {relevantUsers.length}
+          </Badge>
+        </div>
+
+        {availableUsers.length === relevantUsers.length ? (
+          <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-400 flex items-center justify-center text-white">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-tight">Full Alignment</p>
+              <p className="text-[10px] text-emerald-600 font-medium">Everyone selected is free!</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Free</p>
+              {availableUsers.slice(0, 3).map((u: any) => (
+                <p key={u.uid} className="text-[10px] font-bold text-slate-600 truncate">{u.name}</p>
+              ))}
+              {availableUsers.length > 3 && <p className="text-[9px] text-slate-400">+{availableUsers.length - 3} more</p>}
+            </div>
+            <div className="space-y-1">
+              <p className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Busy</p>
+              {busyUsers.slice(0, 3).map((u: any) => (
+                <p key={u.uid} className="text-[10px] font-bold text-slate-600 truncate">{u.name}</p>
+              ))}
+              {busyUsers.length > 3 && <p className="text-[9px] text-slate-400">+{busyUsers.length - 3} more</p>}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Month Calendar Component ---
 
 function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any) {
@@ -683,9 +773,27 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
 
 // --- The Matrix View ---
 
-function MatrixView({ users, availability, currentUserId, viewDate, setViewDate, userProfile, hours, overlaps }: any) {
+function MatrixView({ users, availability, currentUserId, viewDate, setViewDate, userProfile, hours, overlaps, selectedUserIds, setSelectedUserIds }: any) {
   const [hoveredSlot, setHoveredSlot] = useState<any>(null);
   
+  const toggleUserSelection = (userId: string) => {
+    const next = new Set(selectedUserIds);
+    if (next.has(userId)) {
+      next.delete(userId);
+    } else {
+      next.add(userId);
+    }
+    setSelectedUserIds(next);
+  };
+
+  const toggleAll = () => {
+    if (selectedUserIds.size === users.length) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(users.map((u: any) => u.uid)));
+    }
+  };
+
   const todayStr = format(viewDate, 'yyyy-MM-dd');
 
   const getSlot = (userId: string, hour: number) => {
@@ -807,7 +915,15 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
           <thead className="sticky top-0 z-20 bg-white shadow-sm shadow-slate-100">
             <tr>
               <th className="w-48 p-4 bg-white border-r border-slate-100 sticky left-0 z-30">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department Members</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Members</span>
+                  <button 
+                    onClick={toggleAll}
+                    className="text-[9px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-tight"
+                  >
+                    {selectedUserIds.size === users.length ? 'None' : 'All'}
+                  </button>
+                </div>
               </th>
               {hours.map(h => (
                 <th key={h} className="p-4 min-w-[80px] border-r border-slate-50 text-center">
@@ -821,10 +937,25 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
           <tbody>
             {users.map((user: any) => {
               const isSelf = user.uid === currentUserId;
+              const isSelected = selectedUserIds.has(user.uid);
+
               return (
-                <tr key={user.uid} className={cn("group/row border-b border-slate-50", isSelf && "bg-indigo-50/20")}>
-                  <td className="p-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover/row:bg-slate-50 transition-colors">
+                <tr key={user.uid} className={cn(
+                  "group/row border-b border-slate-50 transition-colors", 
+                  isSelf && "bg-indigo-50/20",
+                  !isSelected && "opacity-40 grayscale-[0.5]"
+                )}>
+                  <td 
+                    onClick={() => toggleUserSelection(user.uid)}
+                    className="p-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover/row:bg-slate-50 transition-colors cursor-pointer"
+                  >
                     <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                        isSelected ? "bg-indigo-600 border-indigo-600" : "bg-white border-slate-200"
+                      )}>
+                        {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                      </div>
                       <div className="min-w-0">
                         <p className={cn("text-xs font-bold truncate", isSelf ? "text-indigo-600" : "text-slate-800")}>
                           {user.name} {isSelf && "(You)"}
@@ -835,7 +966,8 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
                   </td>
                   {hours.map(h => {
                     const slot = getSlot(user.uid, h);
-                    const isOptimal = overlaps[h] >= Math.max(1, Math.ceil(users.length * 0.7));
+                    const selectedCount = selectedUserIds.size || users.length;
+                    const isOptimal = overlaps[h] >= Math.max(1, Math.ceil(selectedCount * 0.7));
 
                     return (
                       <td 
