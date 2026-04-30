@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account and profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string" },
+        "groupId": { "type": "string" },
+        "groupName": { "type": "string" },
+        "avatar": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Group": {
+      "title": "Team Group",
+      "description": "A department or team group",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "Availability": {
+      "title": "Availability Entry",
+      "description": "A specific block of time where a user is free or busy",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "groupId": { "type": "string" },
+        "date": { "type": "string", "description": "YYYY-MM-DD" },
+        "startTime": { "type": "number", "description": "Minutes from midnight" },
+        "duration": { "type": "number", "description": "Minutes" },
+        "type": { "type": "string", "enum": ["free", "busy"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date", "startTime", "duration", "type"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Store user profiles"
+    },
+    "groups/{groupId}": {
+      "schema": "Group",
+      "description": "Store team/group metadata"
+    },
+    "availability/{slotId}": {
+      "schema": "Availability",
+      "description": "Store availability entries. Flattened for easy group queries."
+    }
+  }
+}
