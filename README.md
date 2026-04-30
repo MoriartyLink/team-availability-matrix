@@ -1,58 +1,48 @@
-Team Availability Matrix
+```markdown
+# moriartylink/team-availability-matrix
 
-A real-time availability and shift tracking tool for distributed teams. Built to provide immediate visibility into team schedules without overhead.
+Real-time availability and shift tracking for distributed teams. Immediate visibility. Zero overhead.
 
-Tech Stack
+## Tech Stack
 
-Framework: React, TypeScript, Vite
+* **Core:** React, TypeScript, Vite
+* **UI:** Tailwind CSS, lucide-react
+* **Backend:** Firebase (Auth, Firestore)
+* **Utils:** date-fns
 
-Styling: Tailwind CSS
+## Prerequisites
 
-Backend & State: Firebase (Auth, Firestore)
+* Node.js (v18+)
+* Firebase project (Firestore & Auth enabled)
 
-Utilities: date-fns (time manipulation), lucide-react (icons)
+## Setup
 
-Prerequisites
-
-Node.js (v18+)
-
-Firebase project with Firestore and Authentication enabled.
-
-Setup Instructions
-
-Install dependencies:
-
+1. **Install dependencies:**
+```bash
 npm install
+```
 
-
-Configure environment:
-Duplicate the example environment file and inject your Firebase configuration.
-
+2. **Configure environment:**
+```bash
 cp .env.example .env
+```
+*Inject your `VITE_FIREBASE_*` keys into `.env`.*
 
-
-Update .env with your specific VITE_FIREBASE_* keys.
-
-Run locally:
-
+3. **Run locally:**
+```bash
 npm run dev
+```
 
+## Architecture
 
-Architecture Overview
+* `src/App.tsx`: Core UI matrix and state management.
+* `src/lib/firebase.ts`: Firebase initialization and Auth setup.
+* `src/lib/firebaseService.ts`: Firestore read/write operations.
+* `src/types.ts`: Strict data models for Shifts, Users, and Team mapping.
 
-src/App.tsx: Core UI matrix and state management.
-
-src/lib/firebase.ts: Firebase initialization and auth setup.
-
-src/lib/firebaseService.ts: Firestore read/write operations.
-
-src/types.ts: Strict data models for Shifts, Users, and Team mapping.
-
-Build for Production
-
-Generate an optimized static build:
-
+## Production Build
+```bash
 npm run build
-
-
-The output will be available in the dist/ directory, ready for standard static hosting or Firebase Hosting.
+```
+*Output generated in `dist/`. Ready for static or Firebase Hosting.*
+```
