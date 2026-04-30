@@ -18,7 +18,7 @@ Real-time availability and shift tracking for distributed teams. Immediate visib
 
 1. **Install dependencies:**
    
-```bash npm install ``` 
+```npm install ``` 
 
 ## Architecture
 
