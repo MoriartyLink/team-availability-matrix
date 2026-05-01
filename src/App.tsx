@@ -56,25 +56,26 @@ const IconButton = ({ children, className, onClick, tooltip }: any) => (
   <button 
     onClick={onClick}
     className={cn(
-      "p-2 bg-white border border-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors group relative",
+      "p-2 bg-white/5 border border-white/10 rounded-sm text-white/40 hover:text-white transition-all group relative backdrop-blur-md hover:bg-white/10 active:scale-95",
       className
     )}
   >
     {children}
     {tooltip && (
-      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-white text-black text-[10px] font-bold rounded-sm opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
         {tooltip}
       </span>
     )}
   </button>
 );
 
-const Badge = ({ children, variant = 'default' }: any) => (
+const Badge = ({ children, variant = 'default', className }: any) => (
   <span className={cn(
-    "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest",
-    variant === 'default' ? "bg-slate-100 text-slate-500" : 
-    variant === 'success' ? "bg-emerald-100 text-emerald-700" :
-    variant === 'busy' ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-400"
+    "px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest border backdrop-blur-md",
+    variant === 'default' ? "bg-white/5 text-white/30 border-white/5" : 
+    variant === 'success' ? "bg-vivid-blue/10 text-vivid-blue border-vivid-blue/20" :
+    variant === 'busy' ? "bg-orange-500/10 text-orange-400 border-orange-500/20" : "bg-white/5 text-white/40 border-white/5",
+    className
   )}>
     {children}
   </span>
@@ -133,6 +134,7 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [showMobileCalendar, setShowMobileCalendar] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   const hours = useMemo(() => Array.from({ length: 15 }).map((_, i) => i + 7), []); // 7 AM to 10 PM
   const todayStr = format(viewDate, 'yyyy-MM-dd');
@@ -201,11 +203,11 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+      <div className="h-screen w-full flex items-center justify-center bg-black">
         <motion.div 
           animate={{ rotate: 360 }} 
           transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-          className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full" 
+          className="w-8 h-8 border-2 border-white border-t-transparent rounded-full" 
         />
       </div>
     );
@@ -220,25 +222,39 @@ export default function App() {
   }
 
   return (
-    <div className="w-full h-screen bg-slate-50 text-slate-900 flex flex-col font-sans overflow-hidden">
-      <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 z-40">
+    <div className="w-full h-screen bg-black text-white flex flex-col font-sans overflow-hidden noise selection:bg-vivid-blue selection:text-black">
+      {/* Liquid Glass Background Elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-vivid-blue/10 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-pale-blue/5 blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full liquid-flare opacity-50" />
+      </div>
+
+      <header className="h-16 bg-black/40 backdrop-blur-xl border-b border-white/10 px-6 flex items-center justify-between flex-shrink-0 z-40">
         <div className="flex items-center gap-4">
-           <h1 className="text-sm font-black uppercase tracking-widest hidden sm:block">Sync Team</h1>
+           <IconButton 
+             onClick={() => setShowSidebar(!showSidebar)}
+             tooltip={showSidebar ? "Close Sidebar" : "Open Sidebar"}
+             className="hidden md:flex bg-white/5 border-white/5"
+           >
+             <Layers className={cn("w-4 h-4 transition-transform", !showSidebar && "-rotate-90")} />
+           </IconButton>
+           <h1 className="text-[11px] font-display font-bold uppercase tracking-[0.3em] hidden sm:block text-white">Sync Team</h1>
         </div>
 
         <div className="flex items-center gap-2">
           <button 
              onClick={() => setShowMobileCalendar(true)}
-             className="xl:hidden p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+             className="xl:hidden p-2 text-white/40 hover:text-white transition-colors"
           >
             <CalendarIcon className="w-5 h-5" />
           </button>
           <div className="text-right mr-2 hidden md:block">
-            <p className="text-xs font-bold leading-tight">{userProfile.name}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">{userProfile.name}</p>
           </div>
           <button 
             onClick={handleLogout}
-            className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
+            className="w-9 h-9 border border-white/10 bg-white/5 flex items-center justify-center text-white/40 hover:text-red-500 transition-colors rounded-sm backdrop-blur-md"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -251,13 +267,13 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4"
             onClick={() => setShowMobileCalendar(false)}
           >
             <motion.div 
-              initial={{ y: 100 }}
+              initial={{ y: 20 }}
               animate={{ y: 0 }}
-              exit={{ y: 100 }}
+              exit={{ y: 20 }}
               onClick={e => e.stopPropagation()}
               className="w-full max-w-sm"
             >
@@ -272,8 +288,16 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <main className="flex-grow flex p-4 sm:p-6 gap-6 overflow-hidden">
-        <aside className="w-80 flex-shrink-0 flex flex-col gap-6 overflow-y-auto scrollbar-hide hidden xl:flex">
+      <main className="flex-grow flex p-0 sm:p-6 gap-6 overflow-hidden">
+        <AnimatePresence initial={false}>
+          {showSidebar && (
+            <motion.aside 
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ ease: "easeInOut", duration: 0.3 }}
+              className="flex-shrink-0 flex flex-col gap-6 overflow-y-auto px-4 py-4 sm:px-0 sm:py-0 hidden md:flex custom-scrollbar"
+            >
           <MonthCalendar 
             viewDate={viewDate} 
             setViewDate={setViewDate} 
@@ -281,43 +305,43 @@ export default function App() {
             usersCount={groupUsers.length}
           />
           
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Availability Legend</h3>
+          <div className="bg-zinc-900/30 border border-white/5 rounded-sm p-6 shadow-2xl backdrop-blur-3xl glass">
+            <h3 className="text-[10px] font-display font-bold text-white/20 uppercase tracking-[0.2em] mb-4 underline decoration-white/5 underline-offset-8">Legend</h3>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded bg-emerald-400" />
-                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Free / Optimal</span>
+                <div className="w-4 h-4 rounded-sm bg-vivid-blue shadow-[0_0_10px_rgba(125,249,255,0.4)]" />
+                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Free</span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-sm border-2 border-dashed border-emerald-200" />
-                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Recommended Slot</span>
+                <div className="w-4 h-4 rounded-sm border border-dashed border-vivid-blue/40 shadow-[inset_0_0_5px_rgba(125,249,255,0.2)]" />
+                <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Optimal</span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded bg-orange-100" />
-                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Busy / Conflict</span>
+                <div className="w-4 h-4 rounded-sm bg-white/5 border border-white/10" />
+                <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Locked</span>
               </div>
             </div>
             
-            <div className="mt-8 pt-8 border-t border-slate-100">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Quick Shortcuts</h3>
+            <div className="mt-8 pt-8 border-t border-white/5">
+              <h3 className="text-[10px] font-display font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Shortcuts</h3>
               <div className="grid grid-cols-2 gap-2">
                 <button 
                   onClick={() => setViewDate(new Date())}
-                  className="px-3 py-2 bg-slate-50 text-[10px] font-bold rounded-lg border border-slate-100 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                  className="px-3 py-2 bg-white/5 text-[9px] font-bold rounded-sm border border-white/10 hover:bg-white hover:text-black transition-all uppercase tracking-widest backdrop-blur-md"
                 >
-                  Go to Today
+                  Today
                 </button>
                 <button 
                   onClick={() => setViewDate(addWeeks(viewDate, 1))}
-                  className="px-3 py-2 bg-slate-50 text-[10px] font-bold rounded-lg border border-slate-100 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                  className="px-3 py-2 bg-white/5 text-[9px] font-bold rounded-sm border border-white/10 hover:bg-white hover:text-black transition-all uppercase tracking-widest backdrop-blur-md"
                 >
-                  Next Week
+                  Next
                 </button>
               </div>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-slate-100">
-               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Find Alignment</h3>
+            <div className="mt-8 pt-8 border-t border-white/5">
+               <h3 className="text-[10px] font-display font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Analysis</h3>
                <AlignmentSearch 
                  users={groupUsers} 
                  availability={groupAvailability} 
@@ -326,26 +350,25 @@ export default function App() {
                />
             </div>
 
-            <div className="mt-8 pt-8 border-t border-slate-100">
+            <div className="mt-8 pt-8 border-t border-white/5">
                <div className="space-y-4">
                   {Object.entries(overlaps).filter(([_, count]) => (count as number) > 0).sort((a: any, b: any) => (b[1] as number) - (a[1] as number)).slice(0, 3).map(([h, count]) => (
                     <div key={h} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Clock className="w-3 h-3 text-emerald-500" />
-                        <span className="text-[11px] font-bold text-slate-700">{h}:00 - {Number(h) + 1}:00</span>
+                        <Clock className="w-3 h-3 text-vivid-blue/60" />
+                        <span className="text-[10px] font-bold text-white/40 tracking-widest">{h}:00</span>
                       </div>
-                      <Badge variant={(count as number) >= (selectedUserIds.size || groupUsers.length) * 0.7 ? "success" : "busy"}>
-                        {count} / {selectedUserIds.size || groupUsers.length} Free
+                      <Badge variant={(count as number) >= (selectedUserIds.size || groupUsers.length) * 0.7 ? "success" : "default"}>
+                        {count} / {selectedUserIds.size || groupUsers.length}
                       </Badge>
                     </div>
                   ))}
-                  {Object.values(overlaps).every(c => (c as number) === 0) && (
-                    <p className="text-[10px] text-slate-400 font-medium italic">No availability set for this day.</p>
-                  )}
                </div>
             </div>
           </div>
-        </aside>
+        </motion.aside>
+          )}
+        </AnimatePresence>
 
         <MatrixView 
           users={groupUsers} 
@@ -378,47 +401,51 @@ function LandingPage({ onLogin, isLoggingIn, error }: { onLogin: (data: { email:
   };
 
   return (
-    <div className="h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+    <div className="h-screen w-full bg-black relative flex flex-col items-center justify-center p-6 text-center noise overflow-hidden">
+      {/* Background Flares */}
+      <div className="absolute inset-0 pointer-events-none liquid-flare opacity-40 z-0" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-vivid-blue/5 blur-[160px] rounded-full pointer-events-none z-0" />
+
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-indigo-100"
+        className="max-w-md w-full glass p-12 border-white/10 rounded-sm relative z-10 shadow-2xl backdrop-blur-3xl"
       >
-        <h1 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Sync Your Team</h1>
-        <p className="text-slate-500 mb-8 leading-relaxed">
-          The collaborative availability matrix for high-performing teams.
+        <h1 className="text-2xl font-display uppercase tracking-[0.3em] text-white mb-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">Sync Team</h1>
+        <p className="text-white/40 mb-10 text-[10px] uppercase font-bold tracking-[0.2em] leading-relaxed">
+          Liquid Intelligence / Team Synchronization
         </p>
 
         {error && (
           <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-xs font-bold leading-relaxed"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-8 p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-sm text-[10px] font-bold uppercase tracking-widest leading-relaxed"
           >
             {error}
           </motion.div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-left">
+        <form onSubmit={handleSubmit} className="space-y-6 text-left">
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
+            <label className="block text-[9px] font-bold text-white/30 uppercase tracking-[0.2em] mb-3 ml-1">Identity / Mail</label>
             <input 
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
+              placeholder="user@domain.com"
+              className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-sm focus:outline-none focus:border-white transition-all text-xs text-white"
               required
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Password</label>
+            <label className="block text-[9px] font-bold text-white/30 uppercase tracking-[0.2em] mb-3 ml-1">Access / Pass</label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
+              className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-sm focus:outline-none focus:border-white transition-all text-xs text-white"
               required
             />
           </div>
@@ -426,18 +453,18 @@ function LandingPage({ onLogin, isLoggingIn, error }: { onLogin: (data: { email:
           <button 
             type="submit"
             disabled={isLoggingIn}
-            className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50"
+            className="w-full py-5 bg-white text-black rounded-sm font-bold text-xs uppercase tracking-[0.2em] hover:bg-white/90 transition-all disabled:opacity-50"
           >
-            {isLoggingIn ? "Processing..." : (isNewUser ? "Create Account" : "Sign In")}
+            {isLoggingIn ? "Processing..." : (isNewUser ? "Engage Protocol / Sign Up" : "Authenticate / Sign In")}
           </button>
 
-          <div className="flex flex-col items-center gap-3 mt-4">
+          <div className="flex flex-col items-center gap-3 mt-6">
             <button 
               type="button"
               onClick={() => setIsNewUser(!isNewUser)}
-              className="text-slate-400 text-sm font-medium hover:text-indigo-600 transition-colors"
+              className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em] hover:text-white transition-colors"
             >
-              {isNewUser ? "Already have an account? Sign in" : "Need an account? Sign up"}
+              {isNewUser ? "Active Account? Login" : "New Member? Join"}
             </button>
           </div>
         </form>
@@ -465,11 +492,11 @@ function Onboarding({ user, onComplete }: any) {
   };
 
   return (
-    <div className="h-screen w-full bg-white flex items-center justify-center p-6">
-      <div className="max-w-md w-full">
+    <div className="h-screen w-full bg-black flex items-center justify-center p-6">
+      <div className="max-w-md w-full border border-white/10 p-10 rounded-sm">
          <div className="flex gap-2 mb-12">
             {[1, 2, 3].map(i => (
-              <div key={i} className={cn("h-1 flex-1 rounded-full", i <= step ? "bg-indigo-600" : "bg-slate-100")} />
+              <div key={i} className={cn("h-0.5 flex-1", i <= step ? "bg-white" : "bg-white/10")} />
             ))}
          </div>
 
@@ -477,20 +504,20 @@ function Onboarding({ user, onComplete }: any) {
            {step === 1 && (
              <motion.div 
                key="step1"
-               initial={{ opacity: 0, x: 20 }}
+               initial={{ opacity: 0, x: 10 }}
                animate={{ opacity: 1, x: 0 }}
-               exit={{ opacity: 0, x: -20 }}
-               className="space-y-6"
+               exit={{ opacity: 0, x: -10 }}
+               className="space-y-8"
              >
-               <h2 className="text-3xl font-bold tracking-tight">What should we call you?</h2>
+               <h2 className="text-xl font-display uppercase tracking-[0.2em] text-white">Identity</h2>
                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Full Name</label>
+                  <label className="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em]">Full Name</label>
                   <input 
                     autoFocus
                     value={data.name} 
                     onChange={e => setData({...data, name: e.target.value})}
-                    placeholder="Amara Singh"
-                    className="w-full text-xl font-medium p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"
+                    placeholder="e.g. MORIARTY"
+                    className="w-full text-base font-bold p-4 bg-white/5 border border-white/10 rounded-sm focus:outline-none focus:border-white transition-all text-white uppercase tracking-widest"
                   />
                </div>
              </motion.div>
@@ -499,23 +526,23 @@ function Onboarding({ user, onComplete }: any) {
            {step === 2 && (
              <motion.div 
                key="step2"
-               initial={{ opacity: 0, x: 20 }}
+               initial={{ opacity: 0, x: 10 }}
                animate={{ opacity: 1, x: 0 }}
-               exit={{ opacity: 0, x: -20 }}
-               className="space-y-6"
+               exit={{ opacity: 0, x: -10 }}
+               className="space-y-8"
              >
-               <h2 className="text-3xl font-bold tracking-tight">What's your role?</h2>
-               <div className="grid grid-cols-2 gap-3">
-                  {['Product Manager', 'Eng Lead', 'Designer', 'Developer', 'Marketing', 'QA'].map(r => (
+               <h2 className="text-xl font-display uppercase tracking-[0.2em] text-white">Function</h2>
+               <div className="grid grid-cols-2 gap-2">
+                  {['Product', 'Engineering', 'Design', 'Development', 'Marketing', 'Systems'].map(r => (
                     <button 
                       key={r}
                       onClick={() => setData({...data, role: r})}
                       className={cn(
-                        "p-4 rounded-2xl border text-left transition-all",
-                        data.role === r ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white border-slate-100 hover:border-indigo-300"
+                        "p-4 rounded-sm border text-left transition-all uppercase tracking-widest text-[9px] font-bold",
+                        data.role === r ? "bg-white border-white text-black" : "bg-black border-white/10 text-white/40 hover:border-white/30"
                       )}
                     >
-                      <span className="text-sm font-bold">{r}</span>
+                      {r}
                     </button>
                   ))}
                </div>
@@ -525,21 +552,20 @@ function Onboarding({ user, onComplete }: any) {
            {step === 3 && (
              <motion.div 
                key="step3"
-               initial={{ opacity: 0, x: 20 }}
+               initial={{ opacity: 0, x: 10 }}
                animate={{ opacity: 1, x: 0 }}
-               exit={{ opacity: 0, x: -20 }}
-               className="space-y-6"
+               exit={{ opacity: 0, x: -10 }}
+               className="space-y-8"
              >
-               <h2 className="text-3xl font-bold tracking-tight">Join a Group</h2>
-               <p className="text-slate-500">Groups represent departments like "Marketing Team" or "Backend Eng".</p>
+               <h2 className="text-xl font-display uppercase tracking-[0.2em] text-white">Cluster</h2>
                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Group Name</label>
+                  <label className="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em]">Group Identifier</label>
                   <input 
                     autoFocus
                     value={data.groupName} 
                     onChange={e => setData({...data, groupName: e.target.value})}
-                    placeholder="e.g. Design Ops"
-                    className="w-full text-xl font-medium p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"
+                    placeholder="e.g. ALPHA-9"
+                    className="w-full text-base font-bold p-4 bg-white/5 border border-white/10 rounded-sm focus:outline-none focus:border-white transition-all text-white uppercase tracking-widest"
                   />
                </div>
              </motion.div>
@@ -549,16 +575,16 @@ function Onboarding({ user, onComplete }: any) {
          <div className="mt-12 flex justify-between items-center">
             <button 
               onClick={() => step > 1 && setStep(s => s - 1)}
-              className={cn("text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors", step === 1 && "opacity-0 invisible")}
+              className={cn("text-[9px] font-bold text-white/30 hover:text-white transition-colors uppercase tracking-widest", step === 1 && "opacity-0 invisible")}
             >
-              Go Back
+              Previous
             </button>
             <button 
               disabled={step === 1 ? !data.name : step === 2 ? !data.role : !data.groupName}
               onClick={next}
-              className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50 transition-all"
+              className="px-8 py-3 bg-white text-black rounded-sm font-bold text-[10px] uppercase tracking-[0.2em] hover:bg-white/90 disabled:opacity-20 transition-all"
             >
-              {step === 3 ? "Complete Profile" : "Continue"}
+              {step === 3 ? "Initialize" : "Proceed"}
             </button>
          </div>
       </div>
@@ -585,53 +611,50 @@ function AlignmentSearch({ users, availability, selectedUserIds, viewDate }: any
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <div className="flex-grow p-2 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-2">
-          <Clock className="w-4 h-4 text-slate-400" />
+        <div className="flex-grow p-2 bg-white/10 border border-white/20 rounded-sm flex items-center gap-2">
+          <Clock className="w-4 h-4 text-white/30" />
           <select 
             value={selectedHour}
             onChange={(e) => setSelectedHour(Number(e.target.value))}
-            className="bg-transparent text-xs font-bold focus:outline-none w-full"
+            className="bg-transparent text-[10px] font-bold text-white uppercase tracking-widest focus:outline-none w-full"
           >
             {Array.from({ length: 15 }).map((_, i) => (
-              <option key={i + 7} value={i + 7}>{i + 7}:00 - {i + 8}:00</option>
+              <option key={i + 7} value={i + 7} className="bg-black">{i + 7}:00 - {i + 8}:00</option>
             ))}
           </select>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Alignment Status</span>
+          <span className="text-[9px] font-display font-bold text-white/50 uppercase tracking-[0.2em]">Alignment Status</span>
           <Badge variant={availableUsers.length === relevantUsers.length ? 'success' : 'busy'}>
             {availableUsers.length} / {relevantUsers.length}
           </Badge>
         </div>
 
         {availableUsers.length === relevantUsers.length ? (
-          <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-emerald-400 flex items-center justify-center text-white">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
+          <div className="p-4 bg-white/5 border border-vivid-blue/20 rounded-sm flex items-center gap-3">
+            <CheckCircle2 className="w-4 h-4 text-vivid-blue" />
             <div>
-              <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-tight">Full Alignment</p>
-              <p className="text-[10px] text-emerald-600 font-medium">Everyone selected is free!</p>
+              <p className="text-[9px] font-bold text-vivid-blue uppercase tracking-[0.2em]">Synched</p>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Free</p>
+              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-2">Free</p>
               {availableUsers.slice(0, 3).map((u: any) => (
-                <p key={u.uid} className="text-[10px] font-bold text-slate-600 truncate">{u.name}</p>
+                <p key={u.uid} className="text-[10px] font-bold text-white/60 truncate uppercase tracking-widest">{u.name}</p>
               ))}
-              {availableUsers.length > 3 && <p className="text-[9px] text-slate-400">+{availableUsers.length - 3} more</p>}
+              {availableUsers.length > 3 && <p className="text-[8px] text-white/20 uppercase tracking-widest">+{availableUsers.length - 3} more</p>}
             </div>
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Busy</p>
+              <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] mb-2">Busy</p>
               {busyUsers.slice(0, 3).map((u: any) => (
-                <p key={u.uid} className="text-[10px] font-bold text-slate-600 truncate">{u.name}</p>
+                <p key={u.uid} className="text-[10px] font-bold text-white/40 truncate uppercase tracking-widest">{u.name}</p>
               ))}
-              {busyUsers.length > 3 && <p className="text-[9px] text-slate-400">+{busyUsers.length - 3} more</p>}
+              {busyUsers.length > 3 && <p className="text-[8px] text-white/20 uppercase tracking-widest">+{busyUsers.length - 3} more</p>}
             </div>
           </div>
         )}
@@ -640,7 +663,7 @@ function AlignmentSearch({ users, availability, selectedUserIds, viewDate }: any
   );
 }
 
-// --- Month Calendar Component ---
+// --- Month Calendar ---
 
 function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(viewDate));
@@ -662,9 +685,9 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
   }, [availability]);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl shadow-slate-200/50">
+    <div className="bg-zinc-900/30 border border-white/5 rounded-sm p-6 overflow-hidden shadow-2xl backdrop-blur-3xl glass">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-sm font-black text-slate-900 tracking-tight">
+        <h3 className="text-[10px] font-display uppercase tracking-[0.2em] text-white">
           {format(currentMonth, 'MMMM yyyy')}
         </h3>
         <div className="flex items-center gap-1">
@@ -679,7 +702,7 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
 
       <div className="grid grid-cols-7 gap-1 mb-2">
         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-          <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          <div key={day} className="text-center text-[9px] font-black text-white/40 uppercase tracking-[0.15em]">
             {day}
           </div>
         ))}
@@ -691,8 +714,7 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
           const isSelected = isSameDay(day, viewDate);
           const isCurrMonth = isSameMonth(day, currentMonth);
           const density = availabilityDensity[dateStr] || 0;
-          const maxPossibleDensity = usersCount * 15; // Rough estimate of max slots
-          const intensity = Math.min(1, density / 40); // 40 free slots = max intensity visual
+          const intensity = Math.min(1, density / 40);
           
           return (
             <button
@@ -702,31 +724,24 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
                 if (!isCurrMonth) setCurrentMonth(startOfMonth(day));
               }}
               className={cn(
-                "aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all group overflow-hidden",
-                isSelected ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105 z-10" : 
-                isCurrMonth ? "hover:bg-slate-50 text-slate-700" : "text-slate-300 pointer-events-none opacity-30"
+                "aspect-square rounded-sm flex flex-col items-center justify-center relative transition-all group overflow-hidden",
+                isSelected ? "bg-white text-black z-10" : 
+                isCurrMonth ? "hover:bg-white/10 text-white/80" : "text-white/20 pointer-events-none"
               )}
             >
               {!isSelected && intensity > 0 && (
                 <div 
-                  className="absolute inset-x-0 bottom-0 bg-emerald-400/20"
-                  style={{ height: `${intensity * 100}%` }}
+                  className="absolute inset-0 bg-vivid-blue/20 blur-sm"
+                  style={{ opacity: intensity * 0.5 }}
                 />
               )}
 
-              <span className={cn("text-xs font-bold relative z-10", isSelected ? "text-white" : "text-slate-900")}>
+              <span className={cn("text-[10px] font-mono font-bold relative z-10", isSelected ? "text-black" : "text-white/80")}>
                 {format(day, 'd')}
               </span>
               
-              {!isSelected && intensity > 0 && (
-                <div 
-                  className="absolute bottom-1 w-1 h-1 rounded-full bg-emerald-500 relative z-10"
-                  style={{ opacity: intensity + 0.3 }}
-                />
-              )}
-              
               {isToday(day) && !isSelected && (
-                <div className="absolute top-1.5 right-1.5 w-1 h-1 rounded-full bg-indigo-600 relative z-10" />
+                <div className="absolute bottom-1 w-1 h-1 bg-vivid-blue rounded-full relative z-10 shadow-[0_0_5px_rgba(125,249,255,0.8)]" />
               )}
             </button>
           );
@@ -797,7 +812,6 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
       processedHours: new Set([hour])
     });
 
-    // Execute first toggle
     await handleSlotClick(hour);
   };
 
@@ -839,60 +853,59 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
   };
 
   return (
-    <div className="flex-grow bg-white border border-slate-200 rounded-3xl flex flex-col overflow-hidden shadow-xl shadow-slate-200/50 relative">
-      <div className="h-16 bg-slate-50/50 border-b border-slate-100 px-6 flex items-center justify-between flex-shrink-0">
+    <div className="flex-grow glass border-white/10 rounded-sm flex flex-col overflow-hidden relative shadow-2xl">
+      <div className="h-16 bg-white/5 backdrop-blur-3xl border-b border-white/10 px-6 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
            <div className="flex items-center gap-1">
-             <IconButton onClick={() => setViewDate((d: Date) => addDays(d, -1))}><ChevronLeft className="w-4 h-4" /></IconButton>
-             <IconButton onClick={() => setViewDate((d: Date) => addDays(d, 1))}><ChevronRight className="w-4 h-4" /></IconButton>
+             <IconButton onClick={() => setViewDate((d: Date) => addDays(d, -1))} className="bg-white/5 border-white/5"><ChevronLeft className="w-4 h-4" /></IconButton>
+             <IconButton onClick={() => setViewDate((d: Date) => addDays(d, 1))} className="bg-white/5 border-white/5"><ChevronRight className="w-4 h-4" /></IconButton>
            </div>
-           <h2 className="text-lg font-bold tracking-tight">
+           <h2 className="text-[11px] font-display font-bold uppercase tracking-[0.25em] text-white">
              {format(viewDate, 'EEEE, MMM do')}
-             {isToday(viewDate) && <span className="ml-2 text-indigo-600 font-normal"> (Today)</span>}
+             {isToday(viewDate) && <span className="ml-3 text-vivid-blue font-black tracking-widest brightness-125"> / TODAY</span>}
            </h2>
         </div>
         <div className="flex items-center gap-2">
-           <div className="flex items-center bg-indigo-50 rounded-xl border border-indigo-100 overflow-hidden">
+           <div className="flex items-center bg-white/5 rounded-sm border border-white/10 overflow-hidden backdrop-blur-md">
              <button 
                onClick={handleDuplicateWeek}
                disabled={isCopying}
-               className="px-4 py-2 text-indigo-600 text-xs font-bold hover:bg-indigo-100 transition-colors flex items-center gap-2 disabled:opacity-50"
+               className="px-4 py-2 text-white/60 text-[9px] font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all disabled:opacity-50"
              >
-               {isCopying ? "Copying..." : `Repeat for ${repeatWeeks} Week${repeatWeeks > 1 ? 's' : ''}`}
-               <CalendarIcon className="w-3 h-3" />
+               {isCopying ? "SYNCING..." : `Repeat x${repeatWeeks}`}
              </button>
              <select 
                value={repeatWeeks}
                onChange={(e) => setRepeatWeeks(Number(e.target.value))}
-               className="bg-indigo-50 border-l border-indigo-100 px-2 py-2 text-indigo-600 text-[10px] font-bold focus:outline-none hover:bg-indigo-100 transition-colors cursor-pointer appearance-none"
+               className="bg-black/50 border-l border-white/10 px-2 py-2 text-white/60 text-[9px] font-bold focus:outline-none transition-colors cursor-pointer appearance-none uppercase"
              >
                {[1, 2, 3, 4].map(num => (
-                 <option key={num} value={num}>{num}w</option>
+                 <option key={num} value={num} className="bg-zinc-900">{num} weeks</option>
                ))}
              </select>
            </div>
-           <Badge variant="success">Team Overlap</Badge>
+           <Badge variant="success" className="bg-emerald-400/10 border-emerald-400/20 text-emerald-400">Overlap Active</Badge>
         </div>
       </div>
 
-      <div className="flex-grow overflow-auto scrollbar-hide select-none">
+      <div className="flex-grow overflow-auto select-none custom-scrollbar bg-black/20">
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 z-20 bg-white shadow-sm shadow-slate-100">
+          <thead className="sticky top-0 z-20 bg-black/40 backdrop-blur-3xl border-b border-white/10">
             <tr>
-              <th className="w-48 p-4 bg-white border-r border-slate-100 sticky left-0 z-30">
+              <th className="w-48 p-4 bg-transparent border-r border-white/10 sticky left-0 z-30 backdrop-blur-3xl">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Members</span>
+                  <span className="text-[10px] font-display font-bold text-white/40 uppercase tracking-[0.2em]">Members</span>
                   <button 
                     onClick={toggleAll}
-                    className="text-[9px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-tight"
+                    className="text-[8px] font-bold text-white/30 hover:text-white uppercase tracking-widest transition-colors"
                   >
                     {selectedUserIds.size === users.length ? 'None' : 'All'}
                   </button>
                 </div>
               </th>
               {hours.map(h => (
-                <th key={h} className="p-4 min-w-[80px] border-r border-slate-50 text-center">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                <th key={h} className="p-4 min-w-[80px] border-r border-white/5 text-center">
+                  <p className="text-[10px] font-mono font-black text-white/30 tracking-tighter">
                     {h}:00
                   </p>
                 </th>
@@ -906,26 +919,26 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
 
               return (
                 <tr key={user.uid} className={cn(
-                  "group/row border-b border-slate-50 transition-colors", 
-                  isSelf && "bg-indigo-50/20",
-                  !isSelected && "opacity-40 grayscale-[0.5]"
+                  "group/row border-b border-white/5 transition-colors", 
+                  isSelf && "bg-white/5",
+                  !isSelected && "opacity-20 grayscale"
                 )}>
                   <td 
                     onClick={() => toggleUserSelection(user.uid)}
-                    className="p-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover/row:bg-slate-50 transition-colors cursor-pointer"
+                    className="p-4 border-r border-white/10 sticky left-0 z-10 bg-black/40 group-hover/row:bg-white/5 transition-colors cursor-pointer backdrop-blur-3xl"
                   >
                     <div className="flex items-center gap-3">
                       <div className={cn(
-                        "w-4 h-4 rounded border flex items-center justify-center transition-colors",
-                        isSelected ? "bg-indigo-600 border-indigo-600" : "bg-white border-slate-200"
+                        "w-3 h-3 rounded-sm border flex items-center justify-center transition-all",
+                        isSelected ? "bg-white border-white" : "bg-transparent border-white/20"
                       )}>
-                        {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        {isSelected && <div className="w-1.5 h-1.5 bg-black rounded-sm" />}
                       </div>
                       <div className="min-w-0">
-                        <p className={cn("text-xs font-bold truncate", isSelf ? "text-indigo-600" : "text-slate-800")}>
-                          {user.name} {isSelf && "(You)"}
+                        <p className={cn("text-[10px] font-bold truncate uppercase tracking-widest", isSelf ? "text-vivid-blue" : "text-white/70")}>
+                          {user.name}
                         </p>
-                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">{user.role}</p>
+                        <p className="text-[8px] text-white/20 uppercase font-bold tracking-[0.15em]">{user.role}</p>
                       </div>
                     </div>
                   </td>
@@ -941,36 +954,34 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
                         onMouseEnter={() => handleMouseEnterCell(h, user.uid)}
                         onMouseLeave={() => setHoveredSlot(null)}
                         className={cn(
-                          "p-1 h-14 border-r border-slate-50 transition-all cursor-pointer relative",
-                          isSelf ? "hover:bg-indigo-50" : "cursor-default"
+                          "p-0.5 h-14 border-r border-white/5 transition-all cursor-pointer relative",
+                          isSelf ? "hover:bg-white/5" : "cursor-default"
                         )}
                       >
                         <AnimatePresence>
                           {slot && (
                             <motion.div 
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.9 }}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
                               className={cn(
-                                "w-full h-full rounded-lg border flex items-center justify-center shadow-sm transition-all",
-                                slot.type === 'free' ? "bg-emerald-400 border-emerald-500 shadow-emerald-100" : "bg-orange-100 border-orange-200"
+                                "w-full h-full rounded-sm border flex items-center justify-center transition-all",
+                                slot.type === 'free' ? "bg-vivid-blue border-vivid-blue" : "bg-white/5 border-white/10"
                               )}
                             >
-                               {slot.type === 'free' && isSelf && <CheckCircle2 className="w-4 h-4 text-white" />}
+                               {slot.type === 'free' && isSelf && <CheckCircle2 className="w-3 h-3 text-black" />}
                             </motion.div>
                           )}
                         </AnimatePresence>
 
                         {isOptimal && !slot && (
-                           <div className="absolute inset-2 border-2 border-dashed border-emerald-200 rounded-lg flex items-center justify-center">
-                              <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-tighter">Ideal</span>
-                           </div>
+                           <div className="absolute inset-1 border border-dashed border-vivid-blue/30 rounded-sm" />
                         )}
                         
                         {hoveredSlot?.user.uid === user.uid && hoveredSlot?.h === h && (
-                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white rounded-lg z-50 shadow-2xl pointer-events-none min-w-[120px]">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{h}:00 - {h + 1}:00</p>
-                              <p className="text-xs font-bold">{slot ? 'Available' : 'Unavailable'}</p>
+                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-white text-black z-50 shadow-2xl pointer-events-none min-w-[120px] rounded-sm">
+                              <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">{h}:00 - {h + 1}:00</p>
+                              <p className="text-[10px] font-bold uppercase tracking-widest">{slot ? 'Available' : 'Unavailable'}</p>
                            </div>
                         )}
                       </td>
