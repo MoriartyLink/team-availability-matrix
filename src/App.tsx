@@ -91,6 +91,7 @@ export default function App() {
   const [groupUsers, setGroupUsers] = useState<any[]>([]);
   const [groupAvailability, setGroupAvailability] = useState<any[]>([]);
   const [viewDate, setViewDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [direction, setDirection] = useState(0); // -1 for left, 1 for right
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
@@ -383,6 +384,8 @@ export default function App() {
           currentUserId={fUser.uid} 
           viewDate={viewDate}
           setViewDate={handleSetViewDate}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
           direction={direction}
           userProfile={userProfile}
           hours={hours}
@@ -771,7 +774,7 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
 
 // --- The Matrix View ---
 
-function MatrixView({ users, availability, currentUserId, viewDate, setViewDate, direction, userProfile, hours, overlaps, selectedUserIds, setSelectedUserIds }: any) {
+function MatrixView({ users, availability, currentUserId, viewDate, setViewDate, viewMode, setViewMode, direction, userProfile, hours, overlaps, selectedUserIds, setSelectedUserIds }: any) {
   const [hoveredSlot, setHoveredSlot] = useState<any>(null);
   
   const toggleUserSelection = (userId: string) => {
@@ -798,14 +801,15 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
     return availability.find((a: any) => a.userId === userId && a.date === todayStr && a.startTime === hour * 60);
   };
 
-  const handleSlotClick = async (hour: number) => {
-    const existing = getSlot(currentUserId, hour);
+  const handleSlotClick = async (hour: number, date?: string) => {
+    const targetDate = date || todayStr;
+    const existing = availability.find((a: any) => a.userId === currentUserId && a.date === targetDate && a.startTime === hour * 60);
     if (existing) {
       await deleteAvailability(existing.id);
     } else {
       await addAvailability({
         groupId: userProfile.groupId,
-        date: todayStr,
+        date: targetDate,
         startTime: hour * 60,
         duration: 60,
         type: 'free'
@@ -870,6 +874,17 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
     }
   };
 
+  const weekDays = useMemo(() => {
+    const start = startOfWeek(viewDate, { weekStartsOn: 1 });
+    return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+  }, [viewDate]);
+
+  const getWeekStats = (userId: string, day: Date) => {
+    const dStr = format(day, 'yyyy-MM-dd');
+    const userAvail = availability.filter((a: any) => a.userId === userId && a.date === dStr && a.type === 'free');
+    return userAvail.length;
+  };
+
   const slideVariants = {
     initial: (dir: number) => ({
       x: dir > 0 ? 50 : -50,
@@ -901,15 +916,36 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
       <div className="h-16 bg-white/5 backdrop-blur-3xl border-b border-white/10 px-6 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
            <div className="flex items-center gap-1">
-             <IconButton onClick={() => setViewDate((d: Date) => addDays(d, -1))} className="bg-white/5 border-white/5"><ChevronLeft className="w-4 h-4" /></IconButton>
-             <IconButton onClick={() => setViewDate((d: Date) => addDays(d, 1))} className="bg-white/5 border-white/5"><ChevronRight className="w-4 h-4" /></IconButton>
+             <IconButton onClick={() => setViewDate((d: Date) => addDays(d, viewMode === 'day' ? -1 : -7))} className="bg-white/5 border-white/5"><ChevronLeft className="w-4 h-4" /></IconButton>
+             <IconButton onClick={() => setViewDate((d: Date) => addDays(d, viewMode === 'day' ? 1 : 7))} className="bg-white/5 border-white/5"><ChevronRight className="w-4 h-4" /></IconButton>
            </div>
            <h2 className="text-[11px] font-display font-bold uppercase tracking-[0.25em] text-white">
-             {format(viewDate, 'EEEE, MMM do')}
-             {isToday(viewDate) && <span className="ml-3 text-vivid-blue font-black tracking-widest brightness-125"> / TODAY</span>}
+             {viewMode === 'day' ? format(viewDate, 'EEEE, MMM do') : `Week of ${format(startOfWeek(viewDate, { weekStartsOn: 1 }), 'MMM do')}`}
+             {viewMode === 'day' && isToday(viewDate) && <span className="ml-3 text-vivid-blue font-black tracking-widest brightness-125"> / TODAY</span>}
            </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+           <div className="flex items-center bg-white/5 rounded-sm border border-white/10 p-0.5 backdrop-blur-md">
+             <button 
+               onClick={() => setViewMode('day')}
+               className={cn(
+                 "px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest transition-all rounded-sm",
+                 viewMode === 'day' ? "bg-white text-black shadow-lg" : "text-white/40 hover:text-white/60"
+               )}
+             >
+               Day
+             </button>
+             <button 
+               onClick={() => setViewMode('week')}
+               className={cn(
+                 "px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest transition-all rounded-sm",
+                 viewMode === 'week' ? "bg-white text-black shadow-lg" : "text-white/40 hover:text-white/60"
+               )}
+             >
+               Week
+             </button>
+           </div>
+           
            <div className="flex items-center bg-white/5 rounded-sm border border-white/10 overflow-hidden backdrop-blur-md">
              <button 
                onClick={handleDuplicateWeek}
@@ -956,13 +992,29 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
                   </button>
                 </div>
               </th>
-              {hours.map(h => (
-                <th key={h} className="p-4 min-w-[80px] border-r border-white/5 text-center bg-white/[0.02]">
-                  <p className="text-[10px] font-mono font-black text-white/70 tracking-tighter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
-                    {h}:00
-                  </p>
-                </th>
-              ))}
+              {viewMode === 'day' ? (
+                hours.map(h => (
+                  <th key={h} className="p-4 min-w-[80px] border-r border-white/5 text-center bg-white/[0.02]">
+                    <p className="text-[10px] font-mono font-black text-white/70 tracking-tighter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
+                      {h}:00
+                    </p>
+                  </th>
+                ))
+              ) : (
+                weekDays.map(day => (
+                  <th key={day.toISOString()} className={cn(
+                    "p-4 min-w-[120px] border-r border-white/5 text-center bg-white/[0.02]",
+                    isToday(day) && "bg-vivid-blue/5"
+                  )}>
+                    <p className="text-[8px] font-mono font-black text-white/30 uppercase tracking-widest mb-1">
+                      {format(day, 'EEE')}
+                    </p>
+                    <p className="text-[10px] font-mono font-black text-white/70 tracking-tighter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
+                      {format(day, 'MMM d')}
+                    </p>
+                  </th>
+                ))
+              )}
             </tr>
           </thead>
           <tbody>
@@ -995,51 +1047,95 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
                       </div>
                     </div>
                   </td>
-                  {hours.map(h => {
-                    const slot = getSlot(user.uid, h);
-                    const selectedCount = selectedUserIds.size || users.length;
-                    const isOptimal = overlaps[h] >= Math.max(1, Math.ceil(selectedCount * 0.7));
+                  {viewMode === 'day' ? (
+                    hours.map(h => {
+                      const slot = getSlot(user.uid, h);
+                      const selectedCount = selectedUserIds.size || users.length;
+                      const isOptimal = overlaps[h] >= Math.max(1, Math.ceil(selectedCount * 0.7));
 
-                    return (
-                      <td 
-                        key={h} 
-                        onMouseDown={() => isSelf && handleMouseDown(h)}
-                        onMouseEnter={() => handleMouseEnterCell(h, user.uid)}
-                        onMouseLeave={() => setHoveredSlot(null)}
-                        className={cn(
-                          "p-0.5 h-14 border-r border-white/5 transition-all cursor-pointer relative",
-                          isSelf ? "hover:bg-white/5" : "cursor-default"
-                        )}
-                      >
-                        <AnimatePresence>
-                          {slot && (
-                            <motion.div 
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className={cn(
-                                "w-full h-full rounded-sm border flex items-center justify-center transition-all",
-                                slot.type === 'free' ? "bg-vivid-blue border-vivid-blue" : "bg-white/5 border-white/10"
-                              )}
-                            >
-                               {slot.type === 'free' && isSelf && <CheckCircle2 className="w-3 h-3 text-black" />}
-                            </motion.div>
+                      return (
+                        <td 
+                          key={h} 
+                          onMouseDown={() => isSelf && handleMouseDown(h)}
+                          onMouseEnter={() => handleMouseEnterCell(h, user.uid)}
+                          onMouseLeave={() => setHoveredSlot(null)}
+                          className={cn(
+                            "p-0.5 h-14 border-r border-white/5 transition-all cursor-pointer relative",
+                            isSelf ? "hover:bg-white/5" : "cursor-default"
                           )}
-                        </AnimatePresence>
+                        >
+                          <AnimatePresence>
+                            {slot && (
+                              <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className={cn(
+                                  "w-full h-full rounded-sm border flex items-center justify-center transition-all",
+                                  slot.type === 'free' ? "bg-vivid-blue border-vivid-blue" : "bg-white/5 border-white/10"
+                                )}
+                              >
+                                 {slot.type === 'free' && isSelf && <CheckCircle2 className="w-3 h-3 text-black" />}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
 
-                        {isOptimal && !slot && (
-                           <div className="absolute inset-1 border border-dashed border-vivid-blue/30 rounded-sm" />
-                        )}
-                        
-                        {hoveredSlot?.user.uid === user.uid && hoveredSlot?.h === h && (
-                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-white text-black z-50 shadow-2xl pointer-events-none min-w-[120px] rounded-sm">
-                              <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">{h}:00 - {h + 1}:00</p>
-                              <p className="text-[10px] font-bold uppercase tracking-widest">{slot ? 'Available' : 'Unavailable'}</p>
-                           </div>
-                        )}
-                      </td>
-                    );
-                  })}
+                          {isOptimal && !slot && (
+                             <div className="absolute inset-1 border border-dashed border-vivid-blue/30 rounded-sm" />
+                          )}
+                          
+                          {hoveredSlot?.user.uid === user.uid && hoveredSlot?.h === h && (
+                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-white text-black z-50 shadow-2xl pointer-events-none min-w-[120px] rounded-sm">
+                                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">{h}:00 - {h + 1}:00</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest">{slot ? 'Available' : 'Unavailable'}</p>
+                             </div>
+                          )}
+                        </td>
+                      );
+                    })
+                  ) : (
+                    weekDays.map(day => {
+                      const freeCount = getWeekStats(user.uid, day);
+                      const isTodayDay = isToday(day);
+                      
+                      return (
+                        <td 
+                          key={day.toISOString()}
+                          onClick={() => {
+                            setViewDate(day);
+                            setViewMode('day');
+                          }}
+                          className={cn(
+                            "p-2 h-14 border-r border-white/5 transition-all cursor-pointer relative hover:bg-white/5",
+                            isTodayDay && "bg-white/[0.02]"
+                          )}
+                        >
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                            {freeCount > 0 ? (
+                              <>
+                                <div 
+                                  className="w-full h-1 bg-white/5 rounded-full overflow-hidden relative"
+                                >
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(freeCount / hours.length) * 100}%` }}
+                                    className="absolute inset-0 bg-vivid-blue shadow-[0_0_10px_rgba(125,249,255,0.5)]"
+                                  />
+                                </div>
+                                <span className="text-[9px] font-mono font-black text-vivid-blue tracking-widest uppercase">
+                                  {freeCount}h Free
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-[8px] font-mono font-bold text-white/10 tracking-widest uppercase italic">
+                                No Data
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })
+                  )}
                 </tr>
               );
             })}
