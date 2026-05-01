@@ -65,11 +65,11 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if isSignedIn() && (isAdmin() || resource.data.groupId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId);
       allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if isOwner(userId) && 
+      allow update: if (isOwner(userId) || isAdmin()) && 
                       incoming().uid == existing().uid &&
                       incoming().createdAt == existing().createdAt &&
                       incoming().email == existing().email &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'groupId', 'groupName', 'avatar', 'updatedAt']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'groupId', 'groupName', 'avatar', 'isHidden', 'updatedAt']);
       allow delete: if isAdmin() || isOwner(userId);
     }
 

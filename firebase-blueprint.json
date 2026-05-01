@@ -12,6 +12,7 @@
         "groupId": { "type": "string" },
         "groupName": { "type": "string" },
         "avatar": { "type": "string" },
+        "isHidden": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "name", "email", "role"]

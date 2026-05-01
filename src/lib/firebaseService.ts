@@ -156,8 +156,24 @@ export const duplicateAvailabilityToWeeks = async (sourceDate: string, sourceAva
   }
 };
 
+export const adminToggleUserVisibility = async (userId: string, isHidden: boolean) => {
+  const path = `users/${userId}`;
+  try {
+    await updateDoc(doc(db, 'users', userId), {
+      isHidden,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
 export const adminDeleteUser = async (userId: string) => {
+  if (!userId) throw new Error("Invalid User ID provided for deletion");
   const userPath = `users/${userId}`;
+  
+  console.log(`[Admin] Attempting to purge user: ${userId}`);
+  
   try {
     const batch = writeBatch(db);
     
@@ -167,13 +183,39 @@ export const adminDeleteUser = async (userId: string) => {
     // 2. Queue all availability deletions
     const q = query(collection(db, 'availability'), where('userId', '==', userId));
     const snapshots = await getDocs(q);
+    
+    console.log(`[Admin] Found ${snapshots.size} availability entries to purge for ${userId}`);
     snapshots.forEach(d => batch.delete(d.ref));
 
     // 3. Commit the atomic batch
     await batch.commit();
-    console.log(`Successfully purged user ${userId} and their ${snapshots.size} availability entries.`);
+    console.log(`[Admin] Purge complete for user ${userId}.`);
   } catch (error) {
+    console.error("[Admin] Deletion strategy failed:", error);
     handleFirestoreError(error, OperationType.DELETE, userPath);
+  }
+};
+
+export const purgeAllGroupData = async (groupId: string) => {
+  if (!groupId) throw new Error("Group ID required for master purge");
+  
+  try {
+    const batch = writeBatch(db);
+    
+    // 1. Get all users in group
+    const usersQ = query(collection(db, 'users'), where('groupId', '==', groupId));
+    const usersSnap = await getDocs(usersQ);
+    usersSnap.forEach(d => batch.delete(d.ref));
+
+    // 2. Get all availability in group
+    const availQ = query(collection(db, 'availability'), where('groupId', '==', groupId));
+    const availSnap = await getDocs(availQ);
+    availSnap.forEach(d => batch.delete(d.ref));
+
+    await batch.commit();
+    return { usersRemoved: usersSnap.size, recordsRemoved: availSnap.size };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `groups/${groupId}/purge`);
   }
 };
 
