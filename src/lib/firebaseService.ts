@@ -156,6 +156,21 @@ export const duplicateAvailabilityToWeeks = async (sourceDate: string, sourceAva
   }
 };
 
+export const adminDeleteUser = async (userId: string) => {
+  const path = `users/${userId}`;
+  try {
+    await deleteDoc(doc(db, 'users', userId));
+    // Cleanup availability
+    const q = query(collection(db, 'availability'), where('userId', '==', userId));
+    const snapshots = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshots.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
 export const syncAllUsersInGroup = (groupId: string, callback: (data: any[]) => void) => {
   const path = 'users';
   const q = query(collection(db, path), where('groupId', '==', groupId));

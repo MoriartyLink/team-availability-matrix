@@ -48,7 +48,8 @@ import {
   syncAllUsersInGroup,
   addAvailability,
   deleteAvailability,
-  duplicateAvailabilityToWeeks
+  duplicateAvailabilityToWeeks,
+  adminDeleteUser
 } from './lib/firebaseService';
 
 // --- Shared Components ---
@@ -94,10 +95,30 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [direction, setDirection] = useState(0); // -1 for left, 1 for right
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [isAdminView, setIsAdminView] = useState(window.location.pathname === '/admin');
 
   const handleSetViewDate = (newDate: Date) => {
     setDirection(newDate > viewDate ? 1 : -1);
     setViewDate(newDate);
+  };
+
+  // Listen for navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsAdminView(window.location.pathname === '/admin');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateToAdmin = () => {
+    window.history.pushState({}, '', '/admin');
+    setIsAdminView(true);
+  };
+
+  const navigateToDashboard = () => {
+    window.history.pushState({}, '', '/');
+    setIsAdminView(false);
   };
 
   // Listen for Auth changes
@@ -229,6 +250,10 @@ export default function App() {
     return <Onboarding user={fUser} onComplete={(data: any) => createProfile(fUser.uid, { ...data, email: fUser.email, avatar: fUser.photoURL })} />;
   }
 
+  if (isAdminView) {
+    return <AdminDashboard groupUsers={groupUsers} onBack={navigateToDashboard} />;
+  }
+
   return (
     <div className="w-full h-screen bg-black text-white flex flex-col font-sans overflow-hidden noise selection:bg-vivid-blue selection:text-black">
       {/* Liquid Glass Background Elements */}
@@ -247,10 +272,17 @@ export default function App() {
            >
              <Layers className={cn("w-4 h-4 transition-transform", !showSidebar && "-rotate-90")} />
            </IconButton>
-           <h1 className="text-[11px] font-display font-bold uppercase tracking-[0.3em] hidden sm:block text-white">Team Availability Matrix</h1>
+           <h1 className="text-[11px] font-display font-bold uppercase tracking-[0.3em] hidden sm:block text-white">Sync Team</h1>
         </div>
 
         <div className="flex items-center gap-2">
+          <IconButton 
+            onClick={navigateToAdmin}
+            tooltip="Admin Dashboard"
+            className="hidden sm:flex bg-white/5 border-white/5"
+          >
+            <SettingsIcon className="w-4 h-4" />
+          </IconButton>
           <button 
              onClick={() => setShowMobileCalendar(true)}
              className="md:hidden p-2 text-white/40 hover:text-white transition-colors"
@@ -394,6 +426,142 @@ export default function App() {
           setSelectedUserIds={setSelectedUserIds}
         />
       </main>
+    </div>
+  );
+}
+
+// --- Admin Dashboard ---
+
+function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () => void }) {
+  const [passcode, setPasscode] = useState('');
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleAuthorize = (e: FormEvent) => {
+    e.preventDefault();
+    if (passcode === 'admin123') {
+      setIsAuthorized(true);
+      setError('');
+    } else {
+      setError('Invalid Access Code');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm('TERMINATION PROTOCOL: Are you sure you want to delete this user and all their data? This cannot be undone.')) {
+      try {
+        await adminDeleteUser(userId);
+      } catch (err) {
+        alert("Deletion failed. Check console for details.");
+      }
+    }
+  };
+
+  if (!isAuthorized) {
+    return (
+      <div className="h-screen w-full bg-black flex items-center justify-center p-6 text-center overflow-hidden relative">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-red-950/10 blur-[120px]" />
+        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-xs w-full glass p-8 rounded-sm relative z-10 border-red-500/20"
+        >
+          <div className="flex justify-center mb-6 text-red-500 animate-pulse">
+             <SettingsIcon className="w-8 h-8" />
+          </div>
+          <h2 className="text-sm font-display uppercase tracking-[0.25em] text-white mb-6">Restricted / Secure</h2>
+          <form onSubmit={handleAuthorize} className="space-y-4">
+            <input 
+              type="password" 
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              placeholder="ACCESS CODE"
+              className="w-full p-3 bg-red-950/20 border border-white/10 rounded-sm focus:outline-none focus:border-red-500/50 text-xs text-white text-center tracking-widest mb-2"
+              autoFocus
+            />
+            {error && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest">{error}</p>}
+            <button className="w-full py-3 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-white/90 transition-all">
+              Initialize Admin
+            </button>
+            <button type="button" onClick={onBack} className="w-full py-3 text-white/40 text-[9px] font-bold uppercase tracking-widest hover:text-white transition-colors">
+              Return to Terminal
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen w-full bg-black flex flex-col p-8 sm:p-16 overflow-hidden relative selection:bg-red-500 selection:text-white">
+      <div className="absolute inset-0 pointer-events-none noise opacity-20" />
+      
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6 relative z-10">
+        <div>
+          <div className="flex items-center gap-4 mb-4">
+             <div className="w-12 h-1 bg-red-600" />
+             <span className="text-[10px] font-black tracking-[0.3em] text-red-600 uppercase">System Override</span>
+          </div>
+          <h1 className="text-3xl font-display uppercase tracking-[0.4em] text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">Admin / Dashboard</h1>
+          <p className="text-[11px] text-white/30 uppercase tracking-[0.25em] mt-3 font-bold">Node: {window.location.hostname} / Sec: Grade-A</p>
+        </div>
+        <button 
+          onClick={onBack}
+          className="px-8 py-3 border border-white/10 bg-white/5 text-[10px] font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all rounded-sm backdrop-blur-3xl"
+        >
+          Exit Dashboard
+        </button>
+      </div>
+
+      <div className="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto custom-scrollbar relative z-10 pr-4">
+        {groupUsers.map(user => (
+          <motion.div 
+            key={user.uid}
+            layout
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-8 bg-zinc-900/40 border border-white/5 rounded-sm group hover:border-red-500/40 transition-all backdrop-blur-3xl relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-100 transition-opacity">
+               <Users2 className="w-4 h-4 text-white" />
+            </div>
+            
+            <div className="flex items-center gap-5 mb-8">
+              <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-sm flex items-center justify-center text-white/20 group-hover:text-red-500 group-hover:border-red-500/20 transition-all">
+                <Users2 className="w-6 h-6" />
+              </div>
+              <div className="flex-grow">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-1">{user.name}</h3>
+                <p className="text-[9px] text-white/20 uppercase tracking-widest font-black leading-none">{user.role} / Cluster: {user.groupName}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+               <div className="flex items-center justify-between text-[9px] uppercase tracking-widest font-bold">
+                  <span className="text-white/20">Ident:</span>
+                  <span className="text-white/40">{user.uid.slice(0, 8)}...</span>
+               </div>
+               <div className="flex items-center justify-between text-[9px] uppercase tracking-widest font-bold">
+                  <span className="text-white/20">Status:</span>
+                  <span className="text-emerald-500/60">Verified</span>
+               </div>
+               <button 
+                 onClick={() => handleDeleteUser(user.uid)}
+                 className="w-full py-4 mt-4 border border-red-500/20 bg-red-500/5 text-[10px] font-bold text-red-500/60 uppercase tracking-[0.2em] hover:bg-red-600 hover:text-white hover:border-red-600 transition-all rounded-sm shadow-lg shadow-red-900/5"
+               >
+                 Terminate Subject
+               </button>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      
+      <div className="mt-12 text-[9px] text-white/10 uppercase tracking-[0.3em] font-bold border-t border-white/5 pt-8 flex items-center justify-between">
+         <span>Total Active Nodes: {groupUsers.length}</span>
+         <span className="animate-pulse">System Stabilized // No Errors</span>
+      </div>
     </div>
   );
 }
