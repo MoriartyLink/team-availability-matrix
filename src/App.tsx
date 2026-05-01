@@ -28,7 +28,8 @@ import {
   isToday,
   addMonths,
   subMonths,
-  isSameMonth
+  isSameMonth,
+  endOfWeek
 } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -90,7 +91,13 @@ export default function App() {
   const [groupUsers, setGroupUsers] = useState<any[]>([]);
   const [groupAvailability, setGroupAvailability] = useState<any[]>([]);
   const [viewDate, setViewDate] = useState(new Date());
+  const [direction, setDirection] = useState(0); // -1 for left, 1 for right
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+
+  const handleSetViewDate = (newDate: Date) => {
+    setDirection(newDate > viewDate ? 1 : -1);
+    setViewDate(newDate);
+  };
 
   // Listen for Auth changes
   useEffect(() => {
@@ -245,7 +252,7 @@ export default function App() {
         <div className="flex items-center gap-2">
           <button 
              onClick={() => setShowMobileCalendar(true)}
-             className="xl:hidden p-2 text-white/40 hover:text-white transition-colors"
+             className="md:hidden p-2 text-white/40 hover:text-white transition-colors"
           >
             <CalendarIcon className="w-5 h-5" />
           </button>
@@ -279,7 +286,7 @@ export default function App() {
             >
                <MonthCalendar 
                 viewDate={viewDate} 
-                setViewDate={(d: Date) => { setViewDate(d); setShowMobileCalendar(false); }} 
+                setViewDate={handleSetViewDate} 
                 availability={groupAvailability} 
                 usersCount={groupUsers.length}
               />
@@ -296,11 +303,11 @@ export default function App() {
               animate={{ width: 320, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ ease: "easeInOut", duration: 0.3 }}
-              className="flex-shrink-0 flex flex-col gap-6 overflow-y-auto px-4 py-4 sm:px-0 sm:py-0 hidden md:flex custom-scrollbar"
+              className="flex-shrink-0 flex-col gap-6 overflow-y-auto px-0 py-0 hidden md:flex custom-scrollbar h-full"
             >
           <MonthCalendar 
             viewDate={viewDate} 
-            setViewDate={setViewDate} 
+            setViewDate={handleSetViewDate} 
             availability={groupAvailability} 
             usersCount={groupUsers.length}
           />
@@ -375,7 +382,8 @@ export default function App() {
           availability={groupAvailability} 
           currentUserId={fUser.uid} 
           viewDate={viewDate}
-          setViewDate={setViewDate}
+          setViewDate={handleSetViewDate}
+          direction={direction}
           userProfile={userProfile}
           hours={hours}
           overlaps={overlaps}
@@ -667,14 +675,24 @@ function AlignmentSearch({ users, availability, selectedUserIds, viewDate }: any
 
 function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(viewDate));
+
+  useEffect(() => {
+    setCurrentMonth(startOfMonth(viewDate));
+  }, [viewDate]);
   
   const daysInMonth = useMemo(() => {
-    const start = startOfWeek(startOfMonth(currentMonth));
-    const end = startOfWeek(addWeeks(endOfMonth(currentMonth), 1));
-    return eachDayOfInterval({ start, end });
+    try {
+      const start = startOfWeek(startOfMonth(currentMonth));
+      const end = endOfWeek(endOfMonth(currentMonth));
+      return eachDayOfInterval({ start, end });
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   }, [currentMonth]);
 
   const availabilityDensity = useMemo(() => {
+    if (!availability) return {};
     const density: Record<string, number> = {};
     availability.forEach((a: any) => {
       if (a.type === 'free') {
@@ -685,31 +703,31 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
   }, [availability]);
 
   return (
-    <div className="bg-zinc-900/30 border border-white/5 rounded-sm p-6 overflow-hidden shadow-2xl backdrop-blur-3xl glass">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-[10px] font-display uppercase tracking-[0.2em] text-white">
+    <div className="bg-zinc-900/40 border border-white/5 rounded-sm p-4 shadow-2xl backdrop-blur-3xl flex flex-col w-full">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-white/90">
           {format(currentMonth, 'MMMM yyyy')}
         </h3>
         <div className="flex items-center gap-1">
-          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1">
-            <ChevronLeft className="w-3 h-3" />
+          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1.5 opacity-60 hover:opacity-100">
+            <ChevronLeft className="w-3.5 h-3.5" />
           </IconButton>
-          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1">
-            <ChevronRight className="w-3 h-3" />
+          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1.5 opacity-60 hover:opacity-100">
+            <ChevronRight className="w-3.5 h-3.5" />
           </IconButton>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-          <div key={day} className="text-center text-[9px] font-black text-white/40 uppercase tracking-[0.15em]">
+      <div className="grid grid-cols-7 gap-1 mb-2 border-b border-white/5 pb-2">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+          <div key={`${day}-${i}`} className="text-center text-[8px] font-black text-white/20 uppercase tracking-widest">
             {day}
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-7 gap-1">
-        {daysInMonth.map((day, i) => {
+        {daysInMonth.map((day) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const isSelected = isSameDay(day, viewDate);
           const isCurrMonth = isSameMonth(day, currentMonth);
@@ -724,15 +742,15 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
                 if (!isCurrMonth) setCurrentMonth(startOfMonth(day));
               }}
               className={cn(
-                "aspect-square rounded-sm flex flex-col items-center justify-center relative transition-all group overflow-hidden",
-                isSelected ? "bg-white text-black z-10" : 
-                isCurrMonth ? "hover:bg-white/10 text-white/80" : "text-white/20 pointer-events-none"
+                "aspect-square rounded-sm flex flex-col items-center justify-center relative transition-all group overflow-hidden border border-transparent",
+                isSelected ? "bg-white text-black z-10 border-white shadow-[0_0_15px_rgba(255,255,255,0.3)]" : 
+                isCurrMonth ? "hover:bg-white/10 text-white/70 hover:border-white/10" : "text-white/10 pointer-events-none opacity-20"
               )}
             >
               {!isSelected && intensity > 0 && (
                 <div 
-                  className="absolute inset-0 bg-vivid-blue/20 blur-sm"
-                  style={{ opacity: intensity * 0.5 }}
+                  className="absolute inset-0 bg-vivid-blue/30 blur-[2px]"
+                  style={{ opacity: intensity * 0.4 }}
                 />
               )}
 
@@ -741,7 +759,7 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
               </span>
               
               {isToday(day) && !isSelected && (
-                <div className="absolute bottom-1 w-1 h-1 bg-vivid-blue rounded-full relative z-10 shadow-[0_0_5px_rgba(125,249,255,0.8)]" />
+                <div className="absolute bottom-1 w-1 h-1 bg-vivid-blue rounded-full relative z-10 shadow-[0_0_8px_rgba(125,249,255,1)]" />
               )}
             </button>
           );
@@ -753,7 +771,7 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
 
 // --- The Matrix View ---
 
-function MatrixView({ users, availability, currentUserId, viewDate, setViewDate, userProfile, hours, overlaps, selectedUserIds, setSelectedUserIds }: any) {
+function MatrixView({ users, availability, currentUserId, viewDate, setViewDate, direction, userProfile, hours, overlaps, selectedUserIds, setSelectedUserIds }: any) {
   const [hoveredSlot, setHoveredSlot] = useState<any>(null);
   
   const toggleUserSelection = (userId: string) => {
@@ -852,6 +870,32 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
     }
   };
 
+  const slideVariants = {
+    initial: (dir: number) => ({
+      x: dir > 0 ? 50 : -50,
+      opacity: 0,
+      filter: 'blur(10px)'
+    }),
+    animate: {
+      x: 0,
+      opacity: 1,
+      filter: 'blur(0px)',
+      transition: { 
+        x: { type: "spring", stiffness: 350, damping: 30 },
+        opacity: { duration: 0.2 }
+      }
+    },
+    exit: (dir: number) => ({
+      x: dir > 0 ? -50 : 50,
+      opacity: 0,
+      filter: 'blur(10px)',
+      transition: { 
+        x: { type: "spring", stiffness: 350, damping: 30 },
+        opacity: { duration: 0.2 }
+      }
+    })
+  };
+
   return (
     <div className="flex-grow glass border-white/10 rounded-sm flex flex-col overflow-hidden relative shadow-2xl">
       <div className="h-16 bg-white/5 backdrop-blur-3xl border-b border-white/10 px-6 flex items-center justify-between flex-shrink-0">
@@ -884,17 +928,26 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
                ))}
              </select>
            </div>
-           <Badge variant="success" className="bg-emerald-400/10 border-emerald-400/20 text-emerald-400">Overlap Active</Badge>
-        </div>
+          </div>
       </div>
 
-      <div className="flex-grow overflow-auto select-none custom-scrollbar bg-black/20">
-        <table className="w-full border-collapse">
-          <thead className="sticky top-0 z-20 bg-black/40 backdrop-blur-3xl border-b border-white/10">
-            <tr>
-              <th className="w-48 p-4 bg-transparent border-r border-white/10 sticky left-0 z-30 backdrop-blur-3xl">
+      <div className="flex-grow overflow-hidden relative bg-black/20">
+        <AnimatePresence mode="popLayout" custom={direction} initial={false}>
+          <motion.div 
+            key={todayStr}
+            custom={direction}
+            variants={slideVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="absolute inset-0 overflow-auto select-none custom-scrollbar"
+          >
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-20 bg-zinc-950/90 backdrop-blur-3xl border-b border-white/10">
+                <tr>
+                  <th className="w-48 p-4 bg-zinc-950 border-r border-white/10 sticky left-0 z-30">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-display font-bold text-white/40 uppercase tracking-[0.2em]">Members</span>
+                  <span className="text-[10px] font-display font-bold text-white/70 uppercase tracking-[0.2em]">Members</span>
                   <button 
                     onClick={toggleAll}
                     className="text-[8px] font-bold text-white/30 hover:text-white uppercase tracking-widest transition-colors"
@@ -904,8 +957,8 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
                 </div>
               </th>
               {hours.map(h => (
-                <th key={h} className="p-4 min-w-[80px] border-r border-white/5 text-center">
-                  <p className="text-[10px] font-mono font-black text-white/30 tracking-tighter">
+                <th key={h} className="p-4 min-w-[80px] border-r border-white/5 text-center bg-white/[0.02]">
+                  <p className="text-[10px] font-mono font-black text-white/70 tracking-tighter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
                     {h}:00
                   </p>
                 </th>
@@ -992,6 +1045,8 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
             })}
           </tbody>
         </table>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
