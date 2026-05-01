@@ -247,7 +247,7 @@ export default function App() {
            >
              <Layers className={cn("w-4 h-4 transition-transform", !showSidebar && "-rotate-90")} />
            </IconButton>
-           <h1 className="text-[11px] font-display font-bold uppercase tracking-[0.3em] hidden sm:block text-white">Sync Team</h1>
+           <h1 className="text-[11px] font-display font-bold uppercase tracking-[0.3em] hidden sm:block text-white">Team Availability Matrix</h1>
         </div>
 
         <div className="flex items-center gap-2">
