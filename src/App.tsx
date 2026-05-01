@@ -439,7 +439,7 @@ function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () 
 
   const handleAuthorize = (e: FormEvent) => {
     e.preventDefault();
-    if (passcode === 'admin123') {
+    if (passcode === 'khantminsaideshoon') {
       setIsAuthorized(true);
       setError('');
     } else {
