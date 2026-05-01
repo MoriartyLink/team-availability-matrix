@@ -157,18 +157,47 @@ export const duplicateAvailabilityToWeeks = async (sourceDate: string, sourceAva
 };
 
 export const adminDeleteUser = async (userId: string) => {
-  const path = `users/${userId}`;
+  const userPath = `users/${userId}`;
   try {
-    await deleteDoc(doc(db, 'users', userId));
-    // Cleanup availability
+    const batch = writeBatch(db);
+    
+    // 1. Queue user document deletion
+    batch.delete(doc(db, 'users', userId));
+
+    // 2. Queue all availability deletions
     const q = query(collection(db, 'availability'), where('userId', '==', userId));
     const snapshots = await getDocs(q);
-    const batch = writeBatch(db);
     snapshots.forEach(d => batch.delete(d.ref));
+
+    // 3. Commit the atomic batch
     await batch.commit();
+    console.log(`Successfully purged user ${userId} and their ${snapshots.size} availability entries.`);
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleFirestoreError(error, OperationType.DELETE, userPath);
   }
+};
+
+export const requestAdminPrivileges = async (code: string) => {
+  const userId = auth.currentUser?.uid;
+  if (!userId) throw new Error("Authentication required");
+  
+  const path = `admins/${userId}`;
+  try {
+    await setDoc(doc(db, 'admins', userId), {
+      code,
+      email: auth.currentUser?.email,
+      promotedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+};
+
+export const checkAdminStatus = async () => {
+  const userId = auth.currentUser?.uid;
+  if (!userId) return false;
+  const snapshot = await getDoc(doc(db, 'admins', userId));
+  return snapshot.exists();
 };
 
 export const syncAllUsersInGroup = (groupId: string, callback: (data: any[]) => void) => {

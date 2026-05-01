@@ -57,6 +57,17 @@
     "availability/{slotId}": {
       "schema": "Availability",
       "description": "Store availability entries. Flattened for easy group queries."
+    },
+    "admins/{userId}": {
+      "schema": {
+        "title": "Admin",
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "promotedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "description": "Users with administrative privileges"
     }
   }
 }

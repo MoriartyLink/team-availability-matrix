@@ -32,6 +32,10 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
     // --- Entity Validations ---
 
     function isValidUser(data) {
@@ -59,14 +63,19 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isSignedIn(); // We might restrict this later to groups
+      allow list: if isSignedIn() && (isAdmin() || resource.data.groupId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId);
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && 
                       incoming().uid == existing().uid &&
                       incoming().createdAt == existing().createdAt &&
                       incoming().email == existing().email &&
                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'groupId', 'groupName', 'avatar', 'updatedAt']);
-      allow delete: if isOwner(userId);
+      allow delete: if isAdmin() || isOwner(userId);
+    }
+
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isOwner(userId) && incoming().code == 'khantminsaideshoon';
     }
 
     match /groups/{groupId} {
@@ -76,7 +85,7 @@ service cloud.firestore {
     }
 
     match /availability/{slotId} {
-      allow list: if isSignedIn(); 
+      allow list: if isSignedIn() && (isAdmin() || resource.data.groupId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId);
       // Query enforcer: must filter by groupId or userId in production code
       allow get: if isSignedIn();
       allow create: if isSignedIn() && isValidAvailability(incoming());
@@ -86,7 +95,7 @@ service cloud.firestore {
                       incoming().diff(existing()).affectedKeys().hasOnly(['date', 'startTime', 'duration', 'type', 'updatedAt']) &&
                       isValidAvailability(incoming().concat({'createdAt': existing().createdAt})); 
                       // Note: isValidAvailability checks createdAt, so we merge
-      allow delete: if isOwner(existing().userId);
+      allow delete: if isAdmin() || isOwner(existing().userId);
     }
   }
 }

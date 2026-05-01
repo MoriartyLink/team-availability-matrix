@@ -49,7 +49,9 @@ import {
   addAvailability,
   deleteAvailability,
   duplicateAvailabilityToWeeks,
-  adminDeleteUser
+  adminDeleteUser,
+  requestAdminPrivileges,
+  checkAdminStatus
 } from './lib/firebaseService';
 
 // --- Shared Components ---
@@ -435,15 +437,29 @@ export default function App() {
 function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () => void }) {
   const [passcode, setPasscode] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(true);
   const [error, setError] = useState('');
 
-  const handleAuthorize = (e: FormEvent) => {
+  useEffect(() => {
+    const checkStatus = async () => {
+      const isAdmin = await checkAdminStatus();
+      if (isAdmin) setIsAuthorized(true);
+      setIsVerifying(false);
+    };
+    checkStatus();
+  }, []);
+
+  const handleAuthorize = async (e: FormEvent) => {
     e.preventDefault();
-    if (passcode === 'khantminsaideshoon') {
+    setIsVerifying(true);
+    try {
+      await requestAdminPrivileges(passcode);
       setIsAuthorized(true);
       setError('');
-    } else {
-      setError('Invalid Access Code');
+    } catch (err: any) {
+      setError('Authorization Failed: ' + (err.message || 'Check access code'));
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -456,6 +472,17 @@ function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () 
       }
     }
   };
+
+  if (isVerifying) {
+    return (
+      <div className="h-screen w-full bg-black flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthorized) {
     return (
