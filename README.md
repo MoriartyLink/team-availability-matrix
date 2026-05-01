@@ -1,31 +1,20 @@
-## team-availability-matrix
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-Real-time availability and shift tracking for distributed teams. Immediate visibility. Zero overhead.
+# Run and deploy your AI Studio app
 
-## Tech Stack
+This contains everything you need to run your app locally.
 
-* **Core:** React, TypeScript, Vite
-* **UI:** Tailwind CSS, lucide-react
-* **Backend:** Firebase (Auth, Firestore)
-* **Utils:** date-fns
+View your app in AI Studio: https://ai.studio/apps/280298e9-29e2-45e5-acf4-d3a5c14df135
 
-## Prerequisites
+## Run Locally
 
-* Node.js (v18+)
-* Firebase project (Firestore & Auth enabled)
+**Prerequisites:**  Node.js
 
-## Setup
 
-1. **Install dependencies:**
-   
-```npm install ``` 
-
-## Architecture
-
-  * src/App.tsx: Core UI matrix and state management.
-
-  *  src/lib/firebase.ts: Firebase initialization and Auth setup.
-
-  * src/lib/firebaseService.ts: Firestore read/write operations.
-
-  * src/types.ts: Strict data models for Shifts, Users, and Team mapping.
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

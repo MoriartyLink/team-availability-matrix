@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, FormEvent } from 'react';
 import { 
-  Calendar as CalendarIcon, 
+  Calendar as CalendarIcon,
   Users, 
   Search, 
   Plus, 
@@ -10,8 +10,8 @@ import {
   Bell,
   CheckCircle2,
   LogOut,
-  ChevronRight,
   ChevronLeft,
+  ChevronRight,
   Users2,
   Layers,
   ArrowRight
@@ -34,8 +34,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { auth, db } from './lib/firebase';
 import { 
-  GoogleAuthProvider, 
-  signInWithPopup, 
   onAuthStateChanged, 
   User as FirebaseUser,
   signOut,
@@ -152,16 +150,13 @@ export default function App() {
     return counts;
   }, [groupAvailability, todayStr, hours, selectedUserIds]);
 
-  const handleLogin = async (type: 'google' | 'email', emailData?: { email: string, pass: string, isNew: boolean }) => {
+  const handleLogin = async (emailData: { email: string, pass: string, isNew: boolean }) => {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
     setLoginError(null);
     
     try {
-      if (type === 'google') {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
-      } else if (emailData) {
+      if (emailData) {
         const { email, pass, isNew } = emailData;
         if (isNew) {
           await createUserWithEmailAndPassword(auth, email, pass);
@@ -371,8 +366,7 @@ export default function App() {
 
 // --- Sub-Pages ---
 
-function LandingPage({ onLogin, isLoggingIn, error }: { onLogin: (type: 'google' | 'email', data?: { email: string, pass: string, isNew: boolean }) => void, isLoggingIn: boolean, error: string | null }) {
-  const [showEmailForm, setShowEmailForm] = useState(false);
+function LandingPage({ onLogin, isLoggingIn, error }: { onLogin: (data: { email: string, pass: string, isNew: boolean }) => void, isLoggingIn: boolean, error: string | null }) {
   const [isNewUser, setIsNewUser] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -380,7 +374,7 @@ function LandingPage({ onLogin, isLoggingIn, error }: { onLogin: (type: 'google'
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
-    onLogin('email', { email, pass: password, isNew: isNewUser });
+    onLogin({ email, pass: password, isNew: isNewUser });
   };
 
   return (
@@ -405,77 +399,48 @@ function LandingPage({ onLogin, isLoggingIn, error }: { onLogin: (type: 'google'
           </motion.div>
         )}
 
-        {!showEmailForm ? (
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 text-left">
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
+            <input 
+              type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Password</label>
+            <input 
+              type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
+              required
+            />
+          </div>
+          
+          <button 
+            type="submit"
+            disabled={isLoggingIn}
+            className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50"
+          >
+            {isLoggingIn ? "Processing..." : (isNewUser ? "Create Account" : "Sign In")}
+          </button>
+
+          <div className="flex flex-col items-center gap-3 mt-4">
             <button 
-              onClick={() => onLogin('google')}
-              disabled={isLoggingIn}
-              className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              {isLoggingIn ? "Opening Google..." : "Continue with Google"}
-              <div className="bg-indigo-500/50 rounded p-1 ml-2">
-                <ChevronRight className="w-4 h-4 text-white" />
-              </div>
-            </button>
-            
-            <button 
-              onClick={() => setShowEmailForm(true)}
+              type="button"
+              onClick={() => setIsNewUser(!isNewUser)}
               className="text-slate-400 text-sm font-medium hover:text-indigo-600 transition-colors"
             >
-              Or use your email address
+              {isNewUser ? "Already have an account? Sign in" : "Need an account? Sign up"}
             </button>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 text-left">
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Password</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
-                required
-              />
-            </div>
-            
-            <button 
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50"
-            >
-              {isLoggingIn ? "Processing..." : (isNewUser ? "Create Account" : "Sign In")}
-            </button>
-
-            <div className="flex flex-col items-center gap-3 mt-4">
-              <button 
-                type="button"
-                onClick={() => setIsNewUser(!isNewUser)}
-                className="text-slate-400 text-sm font-medium hover:text-indigo-600 transition-colors"
-              >
-                {isNewUser ? "Already have an account? Sign in" : "Need an account? Sign up"}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setShowEmailForm(false)}
-                className="text-slate-300 text-xs hover:text-slate-400 transition-colors"
-              >
-                Back to Google login
-              </button>
-            </div>
-          </form>
-        )}
+        </form>
       </motion.div>
     </div>
   );
