@@ -14,7 +14,11 @@ import {
   ChevronRight,
   Users2,
   Layers,
-  ArrowRight
+  ArrowRight,
+  RefreshCcw,
+  Settings2,
+  BellOff,
+  Lock
 } from 'lucide-react';
 import { 
   format, 
@@ -53,7 +57,8 @@ import {
   requestAdminPrivileges,
   checkAdminStatus,
   purgeAllGroupData,
-  adminToggleUserVisibility
+  adminToggleUserVisibility,
+  updateProfile
 } from './lib/firebaseService';
 
 // --- Shared Components ---
@@ -100,6 +105,12 @@ export default function App() {
   const [direction, setDirection] = useState(0); // -1 for left, 1 for right
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [isAdminView, setIsAdminView] = useState(window.location.pathname === '/admin');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'settings'>('dashboard');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   const handleSetViewDate = (newDate: Date) => {
     setDirection(newDate > viewDate ? 1 : -1);
@@ -162,7 +173,7 @@ export default function App() {
       unsubUsers();
       unsubAvail();
     };
-  }, [userProfile?.groupId]);
+  }, [userProfile?.groupId, refreshKey]);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -269,6 +280,10 @@ export default function App() {
     return <AdminDashboard groupUsers={groupUsers} onBack={navigateToDashboard} />;
   }
 
+  if (currentView === 'settings') {
+    return <SettingsView userProfile={userProfile} onBack={() => setCurrentView('dashboard')} />;
+  }
+
   return (
     <div className="w-full h-screen bg-black text-white flex flex-col font-sans overflow-hidden noise selection:bg-vivid-blue selection:text-black">
       {/* Liquid Glass Background Elements */}
@@ -292,11 +307,25 @@ export default function App() {
 
         <div className="flex items-center gap-2">
           <IconButton 
+            onClick={handleRefresh}
+            tooltip="Refresh Grid"
+            className="flex bg-white/5 border-white/5"
+          >
+            <RefreshCcw className={cn("w-4 h-4", refreshKey > 0 && "animate-spin-once")} />
+          </IconButton>
+          <IconButton 
+            onClick={() => setCurrentView(currentView === 'dashboard' ? 'settings' : 'dashboard')}
+            tooltip="Profile Settings"
+            className="flex bg-white/5 border-white/5"
+          >
+            <Settings2 className="w-4 h-4" />
+          </IconButton>
+          <IconButton 
             onClick={navigateToAdmin}
             tooltip="Admin Dashboard"
             className="hidden sm:flex bg-white/5 border-white/5"
           >
-            <SettingsIcon className="w-4 h-4" />
+            <Lock className="w-4 h-4" />
           </IconButton>
           <button 
              onClick={() => setShowMobileCalendar(true)}
@@ -1414,6 +1443,122 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
         </table>
           </motion.div>
         </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function SettingsView({ userProfile, onBack }: { userProfile: any, onBack: () => void }) {
+  const [formData, setFormData] = useState({
+    name: userProfile.name || '',
+    role: userProfile.role || '',
+    avatar: userProfile.avatar || '',
+    groupId: userProfile.groupId || '',
+    notificationsEnabled: userProfile.notificationsEnabled ?? true
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleSave = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setMessage('');
+    try {
+      await updateProfile(userProfile.uid, formData);
+      setMessage('Profile updated successfully.');
+      setTimeout(onBack, 1500);
+    } catch (err: any) {
+      setMessage('Update failed: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="h-screen w-full bg-black flex flex-col p-8 sm:p-16 overflow-hidden relative selection:bg-vivid-blue selection:text-black">
+      <div className="absolute inset-0 pointer-events-none noise opacity-20" />
+      <div className="absolute inset-0 pointer-events-none liquid-flare opacity-40 z-0" />
+
+      <div className="max-w-2xl w-full mx-auto relative z-10 flex flex-col h-full">
+        <header className="flex items-center justify-between mb-12">
+          <div>
+            <div className="flex items-center gap-4 mb-4">
+               <div className="w-12 h-1 bg-vivid-blue" />
+               <span className="text-[10px] font-black tracking-[0.3em] text-vivid-blue uppercase">Profile</span>
+            </div>
+            <h1 className="text-3xl font-display uppercase tracking-[0.4em] text-white">Settings</h1>
+          </div>
+          <IconButton onClick={onBack} tooltip="Back to Dashboard">
+            <ChevronLeft className="w-4 h-4" />
+          </IconButton>
+        </header>
+
+        <form onSubmit={handleSave} className="space-y-8 flex-grow overflow-y-auto custom-scrollbar pr-4 pb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Full Name</label>
+              <input 
+                value={formData.name} 
+                onChange={e => setFormData({...formData, name: e.target.value})}
+                className="w-full p-4 bg-zinc-900/50 border border-white/10 rounded-sm focus:border-vivid-blue/50 focus:outline-none transition-all text-xs font-mono uppercase tracking-widest text-white"
+                placeholder="OPERATOR NAME"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Current Role</label>
+              <input 
+                value={formData.role} 
+                onChange={e => setFormData({...formData, role: e.target.value})}
+                className="w-full p-4 bg-zinc-900/50 border border-white/10 rounded-sm focus:border-vivid-blue/50 focus:outline-none transition-all text-xs font-mono uppercase tracking-widest text-white"
+                placeholder="e.g. SYSTEMS / ARCHITECT"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Avatar URL</label>
+            <input 
+              value={formData.avatar} 
+              onChange={e => setFormData({...formData, avatar: e.target.value})}
+              className="w-full p-4 bg-zinc-900/50 border border-white/10 rounded-sm focus:border-vivid-blue/50 focus:outline-none transition-all text-xs font-mono uppercase tracking-widest text-white"
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="p-8 bg-vivid-blue/5 border border-vivid-blue/20 rounded-sm space-y-4">
+             <div className="flex items-center justify-between">
+                <div>
+                   <h3 className="text-xs font-display uppercase tracking-widest text-vivid-blue mb-1">Team Access Cluster</h3>
+                   <p className="text-[9px] text-vivid-blue/40 uppercase font-black">Warning: Changing this moves you to a different shared network.</p>
+                </div>
+             </div>
+             <input 
+              value={formData.groupId} 
+              onChange={e => setFormData({...formData, groupId: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
+              className="w-full p-4 bg-black/40 border border-vivid-blue/20 rounded-sm focus:border-vivid-blue/60 focus:outline-none transition-all text-xs font-mono uppercase tracking-[0.3em] text-vivid-blue"
+              placeholder="TEAM-CODE"
+            />
+          </div>
+
+          {message && (
+            <p className={cn(
+              "text-[10px] font-black uppercase tracking-[0.3em] text-center",
+              message.includes('failed') ? "text-red-500" : "text-emerald-500"
+            )}>
+              {message}
+            </p>
+          )}
+
+          <div className="pt-8">
+            <button 
+              type="submit"
+              disabled={isSaving}
+              className="w-full py-5 bg-white text-black font-black text-xs uppercase tracking-[0.4em] rounded-sm hover:invert transition-all disabled:opacity-50"
+            >
+              {isSaving ? "Syncing..." : "Update Protocol"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

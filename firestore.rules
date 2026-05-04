@@ -69,7 +69,7 @@ service cloud.firestore {
                       incoming().uid == existing().uid &&
                       incoming().createdAt == existing().createdAt &&
                       incoming().email == existing().email &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'groupId', 'groupName', 'avatar', 'isHidden', 'updatedAt']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'groupId', 'groupName', 'avatar', 'isHidden', 'notificationsEnabled', 'updatedAt']);
       allow delete: if isAdmin() || isOwner(userId);
     }
 

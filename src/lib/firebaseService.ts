@@ -168,6 +168,18 @@ export const adminToggleUserVisibility = async (userId: string, isHidden: boolea
   }
 };
 
+export const updateProfile = async (userId: string, data: any) => {
+  const path = `users/${userId}`;
+  try {
+    await updateDoc(doc(db, 'users', userId), {
+      ...data,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
 export const adminDeleteUser = async (userId: string) => {
   if (!userId) throw new Error("Invalid User ID provided for deletion");
   const userPath = `users/${userId}`;
