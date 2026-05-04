@@ -45,6 +45,18 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "date", "startTime", "duration", "type"]
+    },
+    "TeamCode": {
+      "title": "Authorized Team Access Code",
+      "description": "A pre-authorized code that users can use to join or create a team sync space",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["code", "createdAt"]
     }
   },
   "firestore": {
@@ -70,6 +82,10 @@
         }
       },
       "description": "Users with administrative privileges"
+    },
+    "teamCodes/{codeId}": {
+      "schema": "TeamCode",
+      "description": "List of authorized team access codes"
     }
   }
 }

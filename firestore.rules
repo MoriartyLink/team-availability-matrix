@@ -59,23 +59,37 @@ service cloud.firestore {
              data.createdAt == request.time;
     }
 
+    function isValidTeamCode(data) {
+      return data.keys().hasAll(['code', 'createdAt']) &&
+             data.code is string && data.code.size() > 0 &&
+             data.code.size() < 50 &&
+             data.createdAt == request.time;
+    }
+
     // --- Match Blocks ---
 
-    match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && (isAdmin() || resource.data.groupId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId);
-      allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if (isOwner(userId) || isAdmin()) && 
-                      incoming().uid == existing().uid &&
-                      incoming().createdAt == existing().createdAt &&
-                      incoming().email == existing().email &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'groupId', 'groupName', 'avatar', 'isHidden', 'notificationsEnabled', 'updatedAt']);
-      allow delete: if isAdmin() || isOwner(userId);
+    match /teamCodes/{codeId} {
+      allow list, get: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == 'moriartylink@gmail.com');
     }
 
     match /admins/{userId} {
       allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && isOwner(userId) && incoming().code == 'khantminsaideshoon';
+      allow create, update: if isSignedIn() && isOwner(userId) && (incoming().code == 'khantminsaideshoon' || request.auth.token.email == 'moriartylink@gmail.com');
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.groupId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId));
+      allow create: if isOwner(userId) && isValidUser(incoming()) && 
+                    (incoming().groupId == 'talkware2026' || exists(/databases/$(database)/documents/teamCodes/$(incoming().groupId)) || request.auth.token.email == 'moriartylink@gmail.com');
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                      incoming().uid == existing().uid &&
+                      incoming().createdAt == existing().createdAt &&
+                      incoming().email == existing().email &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'groupId', 'groupName', 'avatar', 'isHidden', 'notificationsEnabled', 'updatedAt']) &&
+                      (incoming().groupId == existing().groupId || incoming().groupId == 'talkware2026' || exists(/databases/$(database)/documents/teamCodes/$(incoming().groupId)));
+      allow delete: if isAdmin() || isOwner(userId);
     }
 
     match /groups/{groupId} {

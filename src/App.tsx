@@ -58,7 +58,11 @@ import {
   checkAdminStatus,
   purgeAllGroupData,
   adminToggleUserVisibility,
-  updateProfile
+  updateProfile,
+  createTeamCode,
+  deleteTeamCode,
+  syncTeamCodes,
+  validateTeamCode
 } from './lib/firebaseService';
 
 // --- Shared Components ---
@@ -107,9 +111,18 @@ export default function App() {
   const [isAdminView, setIsAdminView] = useState(window.location.pathname === '/admin');
   const [currentView, setCurrentView] = useState<'dashboard' | 'settings'>('dashboard');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('24h');
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
+  };
+
+  const formatHour = (h: number) => {
+    const normalisedH = h % 24;
+    if (timeFormat === '24h') return `${h}:00`;
+    const period = (h >= 12 && h < 24) || h === 36 ? 'PM' : 'AM'; // Simple enough for our range
+    const displayHour = normalisedH % 12 || 12;
+    return `${displayHour} ${period}`;
   };
 
   const handleSetViewDate = (newDate: Date) => {
@@ -180,7 +193,7 @@ export default function App() {
   const [showMobileCalendar, setShowMobileCalendar] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
 
-  const hours = useMemo(() => Array.from({ length: 15 }).map((_, i) => i + 7), []); // 7 AM to 10 PM
+  const hours = useMemo(() => Array.from({ length: 15 }).map((_, i) => i + 9), []); // 9 AM to 11 PM
   const todayStr = format(viewDate, 'yyyy-MM-dd');
 
   const visibleUsers = useMemo(() => {
@@ -307,6 +320,13 @@ export default function App() {
 
         <div className="flex items-center gap-2">
           <IconButton 
+            onClick={() => setTimeFormat(timeFormat === '12h' ? '24h' : '12h')}
+            tooltip={timeFormat === '12h' ? "Switch to 24h" : "Switch to 12h"}
+            className="flex bg-white/5 border-white/5 font-mono text-[9px] font-bold"
+          >
+            {timeFormat.toUpperCase()}
+          </IconButton>
+          <IconButton 
             onClick={handleRefresh}
             tooltip="Refresh Grid"
             className="flex bg-white/5 border-white/5"
@@ -431,6 +451,8 @@ export default function App() {
                  availability={visibleAvailability} 
                  selectedUserIds={selectedUserIds}
                  viewDate={viewDate}
+                 hours={hours}
+                 formatHour={formatHour}
                />
             </div>
 
@@ -440,7 +462,7 @@ export default function App() {
                     <div key={h} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Clock className="w-3 h-3 text-vivid-blue/60" />
-                        <span className="text-[10px] font-bold text-white/40 tracking-widest">{h}:00</span>
+                        <span className="text-[10px] font-bold text-white/40 tracking-widest">{formatHour(Number(h))}</span>
                       </div>
                       <Badge variant={(count as number) >= (selectedUserIds.size || groupUsers.length) * 0.7 ? "success" : "default"}>
                         {count} / {selectedUserIds.size || groupUsers.length}
@@ -465,6 +487,7 @@ export default function App() {
           direction={direction}
           userProfile={userProfile}
           hours={hours}
+          formatHour={formatHour}
           overlaps={overlaps}
           selectedUserIds={selectedUserIds}
           setSelectedUserIds={setSelectedUserIds}
@@ -483,6 +506,14 @@ function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () 
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isPurging, setIsPurging] = useState(false);
   const [error, setError] = useState('');
+  const [teamCodes, setTeamCodes] = useState<any[]>([]);
+  const [newCode, setNewCode] = useState('');
+  const [showCodeManager, setShowCodeManager] = useState(false);
+
+  useEffect(() => {
+    const unsub = syncTeamCodes(setTeamCodes);
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const checkStatus = async () => {
@@ -528,7 +559,7 @@ function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () 
     
     if (confirmCode === 'TALKWARE2026') {
       const groupId = groupUsers[0]?.groupId;
-      if (!groupId) return alert("No cluster identified.");
+      if (!groupId) return alert("No Team Access Code identified.");
       
       setIsPurging(true);
       try {
@@ -607,11 +638,17 @@ function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () 
         </div>
         <div className="flex items-center gap-4">
           <button 
+            onClick={() => setShowCodeManager(!showCodeManager)}
+            className="px-8 py-3 border border-vivid-blue/50 bg-vivid-blue/5 text-vivid-blue text-[10px] font-bold uppercase tracking-widest hover:bg-vivid-blue hover:text-black transition-all rounded-sm backdrop-blur-3xl"
+          >
+            {showCodeManager ? 'User Grid' : 'Team Access Codes'}
+          </button>
+          <button 
             onClick={handlePurgeAll}
             disabled={isPurging}
             className="px-8 py-3 border border-red-500/50 bg-red-500/5 text-red-500 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all rounded-sm backdrop-blur-3xl disabled:opacity-50 disabled:cursor-wait"
           >
-            {isPurging ? 'Purging Cluster...' : 'Purge All Cluster Data'}
+            {isPurging ? 'Purging Team...' : 'Purge All Team Data'}
           </button>
           <button 
             onClick={onBack}
@@ -622,74 +659,159 @@ function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () 
         </div>
       </div>
 
-      <div className="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto custom-scrollbar relative z-10 pr-4">
-        <AnimatePresence mode="popLayout">
-          {groupUsers.map(user => (
+      <div className="flex-grow overflow-y-auto custom-scrollbar relative z-10 pr-4">
+        <AnimatePresence mode="wait">
+          {showCodeManager ? (
             <motion.div 
-              key={user.id || user.uid}
-              layout
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-              className="p-8 bg-zinc-900/40 border border-white/5 rounded-sm group hover:border-red-500/40 transition-all backdrop-blur-3xl relative"
+              key="code-manager"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="max-w-4xl mx-auto w-full space-y-8 pb-32"
             >
-              <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-100 transition-opacity">
-                 <Users2 className="w-4 h-4 text-white" />
-              </div>
-              
-              <div className="flex items-center gap-5 mb-8">
-                <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-sm flex items-center justify-center text-white/20 group-hover:text-red-500 group-hover:border-red-500/20 transition-all">
-                  <Users2 className="w-6 h-6" />
+              <div className="p-8 glass border-vivid-blue/20">
+                <h3 className="text-sm font-display uppercase tracking-[0.3em] text-white mb-6">Authorize New Access Code</h3>
+                <div className="flex flex-col sm:flex-row gap-4">
+                   <input 
+                      value={newCode}
+                      onChange={e => setNewCode(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                      placeholder="NEW-TEAM-CODE"
+                      className="flex-grow p-4 bg-black/40 border border-white/10 rounded-sm focus:border-vivid-blue/50 focus:outline-none text-xs font-mono uppercase tracking-[0.2em] text-white"
+                   />
+                   <button 
+                      onClick={async () => {
+                        if (!newCode) return;
+                        await createTeamCode(newCode, "Authorized Team Access Code");
+                        setNewCode('');
+                      }}
+                      className="px-12 py-4 bg-vivid-blue text-black font-black text-[10px] uppercase tracking-widest rounded-sm hover:invert transition-all"
+                   >
+                     Authorize Code
+                   </button>
                 </div>
-                <div className="flex-grow">
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-1">{user.name}</h3>
-                  <p className="text-[9px] text-white/20 uppercase tracking-widest font-black leading-none">{user.role} / Cluster: {user.groupName}</p>
-                </div>
               </div>
-              
-              <div className="space-y-4 pt-4 border-t border-white/5">
-                 <div className="flex items-center justify-between text-[11px] uppercase tracking-widest font-bold">
-                    <span className="text-white/20">Ident:</span>
-                    <span className="text-white/60 font-mono">{(user.id || user.uid || '').slice(0, 12)}</span>
-                 </div>
-                 <div className="flex items-center justify-between text-[11px] uppercase tracking-widest font-bold">
-                    <span className="text-white/20">Access:</span>
-                    <span className={cn("font-black", user.isHidden ? "text-red-500" : "text-emerald-500")}>
-                      {user.isHidden ? 'HIDDEN / OFFLINE' : 'VISIBLE / ACTIVE'}
-                    </span>
-                 </div>
-                 
-                 <div className="pt-6 flex flex-col gap-4">
-                    <button 
-                      onClick={() => adminToggleUserVisibility(user.id || user.uid, !user.isHidden)}
-                      className={cn(
-                        "w-full py-4 border text-[11px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm flex items-center justify-center gap-2",
-                        user.isHidden
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white"
-                          : "border-white/10 bg-white/5 text-white/50 hover:bg-white hover:text-black"
-                      )}
-                    >
-                      {user.isHidden ? 'Restore To Team Sync' : 'Hide from Team Sync'}
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteUser(user.id || user.uid)}
-                      disabled={isDeleting === (user.id || user.uid)}
-                      className={cn(
-                        "w-full py-4 border text-[11px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm flex items-center justify-center gap-2",
-                        isDeleting === (user.id || user.uid) 
-                          ? "bg-red-600 border-red-600 text-white animate-pulse"
-                          : "border-red-500/20 bg-red-500/5 text-red-500/60 hover:bg-red-600 hover:text-white hover:border-red-600"
-                      )}
-                    >
-                      {isDeleting === (user.id || user.uid) ? 'DELETING...' : 'Terminate Subject'}
-                    </button>
-                 </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {teamCodes.map(code => (
+                   <motion.div 
+                      key={code.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="p-6 bg-zinc-900/40 border border-white/5 rounded-sm flex flex-col justify-between group"
+                   >
+                      <div>
+                         <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-vivid-blue shadow-[0_0_8px_rgba(125,249,255,0.5)]" />
+                            <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Authorized Path</span>
+                         </div>
+                         <h4 className="text-xl font-mono uppercase tracking-[0.2em] text-vivid-blue mb-2">{code.code}</h4>
+                         <p className="text-[9px] text-white/30 uppercase font-black leading-relaxed">{code.description}</p>
+                      </div>
+                      <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
+                         <span className="text-[9px] text-white/20 font-mono">ID: {code.id.slice(0, 8)}</span>
+                         <button 
+                            onClick={async () => {
+                               if (window.confirm(`REVOKE ACCESS: Remove team code "${code.code}"? New users will no longer be able to use it.`)) {
+                                  await deleteTeamCode(code.id);
+                               }
+                            }}
+                            className="text-[9px] font-black uppercase text-red-500/50 hover:text-red-500 transition-colors"
+                         >
+                            Revoke
+                         </button>
+                      </div>
+                   </motion.div>
+                 ))}
+                 {teamCodes.length === 0 && (
+                   <div className="col-span-full py-20 text-center border border-white/5 bg-white/5 border-dashed rounded-sm">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-white/20 mb-6">No Authorized Team Access Codes Found</p>
+                      <button 
+                        onClick={() => createTeamCode('talkware2026', 'Primary Master Team Access Code')}
+                        className="px-8 py-3 bg-vivid-blue/10 border border-vivid-blue/30 text-vivid-blue text-[10px] font-bold uppercase tracking-widest hover:bg-vivid-blue hover:text-black transition-all rounded-sm"
+                      >
+                        Register talkware2026 as Master Code
+                      </button>
+                   </div>
+                 )}
               </div>
             </motion.div>
-          ))}
+          ) : (
+            <motion.div 
+              key="user-grid"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {groupUsers.map(user => (
+                <motion.div 
+                  key={user.id || user.uid}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                  className="p-8 bg-zinc-900/40 border border-white/5 rounded-sm group hover:border-red-500/40 transition-all backdrop-blur-3xl relative"
+                >
+                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-100 transition-opacity">
+                     <Users2 className="w-4 h-4 text-white" />
+                  </div>
+                  
+                  <div className="flex items-center gap-5 mb-8">
+                    <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-sm flex items-center justify-center text-white/20 group-hover:text-red-500 group-hover:border-red-500/20 transition-all">
+                      <Users2 className="w-6 h-6" />
+                    </div>
+                    <div className="flex-grow">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-1">{user.name}</h3>
+                      <p className="text-[9px] text-white/20 uppercase tracking-widest font-black leading-none">{user.role} / Team Access Code: {user.groupId}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                     <div className="flex items-center justify-between text-[11px] uppercase tracking-widest font-bold">
+                        <span className="text-white/20">Ident:</span>
+                        <span className="text-white/60 font-mono">{(user.id || user.uid || '').slice(0, 12)}</span>
+                     </div>
+                     <div className="flex items-center justify-between text-[11px] uppercase tracking-widest font-bold">
+                        <span className="text-white/20">Access:</span>
+                        <span className={cn("font-black", user.isHidden ? "text-red-500" : "text-emerald-500")}>
+                          {user.isHidden ? 'HIDDEN / OFFLINE' : 'VISIBLE / ACTIVE'}
+                        </span>
+                     </div>
+                     
+                     <div className="pt-6 flex flex-col gap-4">
+                        <button 
+                          onClick={() => adminToggleUserVisibility(user.id || user.uid, !user.isHidden)}
+                          className={cn(
+                            "w-full py-4 border text-[11px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm flex items-center justify-center gap-2",
+                            user.isHidden
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white"
+                              : "border-white/10 bg-white/5 text-white/50 hover:bg-white hover:text-black"
+                          )}
+                        >
+                          {user.isHidden ? 'Restore To Team Sync' : 'Hide from Team Sync'}
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteUser(user.id || user.uid)}
+                          disabled={isDeleting === (user.id || user.uid)}
+                          className={cn(
+                            "w-full py-4 border text-[11px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm flex items-center justify-center gap-2",
+                            isDeleting === (user.id || user.uid) 
+                              ? "bg-red-600 border-red-600 text-white animate-pulse"
+                              : "border-red-500/20 bg-red-500/5 text-red-500/60 hover:bg-red-600 hover:text-white hover:border-red-600"
+                          )}
+                        >
+                          {isDeleting === (user.id || user.uid) ? 'DELETING...' : 'Terminate Subject'}
+                        </button>
+                     </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
-      
+
       <div className="mt-12 text-[9px] text-white/10 uppercase tracking-[0.3em] font-bold border-t border-white/5 pt-8 flex items-center justify-between">
          <span>Total Active Nodes: {groupUsers.length}</span>
          <span className="animate-pulse">System Stabilized // No Errors</span>
@@ -793,10 +915,27 @@ function Onboarding({ user, onComplete }: any) {
     groupId: ''
   });
 
-  const next = () => {
+  const [isValidating, setIsValidating] = useState(false);
+  const [error, setError] = useState('');
+
+  const next = async () => {
     if (step === 3) {
-      const groupId = data.groupName.toLowerCase().replace(/\s+/g, '-');
-      onComplete({ ...data, groupId });
+      setIsValidating(true);
+      setError('');
+      try {
+        const groupId = data.groupName.toLowerCase().replace(/\s+/g, '-');
+        const isMaster = groupId === 'talkware2026';
+        const isValid = isMaster || await validateTeamCode(groupId);
+        if (!isValid) {
+          setError('Invalid Access Code. Please contact your administrator.');
+          return;
+        }
+        onComplete({ ...data, groupId, groupName: data.groupName });
+      } catch (err: any) {
+        setError('Validation failed.');
+      } finally {
+        setIsValidating(false);
+      }
     } else {
       setStep(s => s + 1);
     }
@@ -868,9 +1007,9 @@ function Onboarding({ user, onComplete }: any) {
                exit={{ opacity: 0, x: -10 }}
                className="space-y-8"
              >
-               <h2 className="text-xl font-display uppercase tracking-[0.2em] text-white">Cluster</h2>
+               <h2 className="text-xl font-display uppercase tracking-[0.2em] text-white">Access</h2>
                <div className="space-y-2">
-                  <label className="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em]">Group Identifier</label>
+                  <label className="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em]">Team Access Code</label>
                   <input 
                     autoFocus
                     value={data.groupName} 
@@ -878,6 +1017,7 @@ function Onboarding({ user, onComplete }: any) {
                     placeholder="e.g. ALPHA-9"
                     className="w-full text-base font-bold p-4 bg-white/5 border border-white/10 rounded-sm focus:outline-none focus:border-white transition-all text-white uppercase tracking-widest"
                   />
+                  {error && <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-2">{error}</p>}
                </div>
              </motion.div>
            )}
@@ -886,16 +1026,16 @@ function Onboarding({ user, onComplete }: any) {
          <div className="mt-12 flex justify-between items-center">
             <button 
               onClick={() => step > 1 && setStep(s => s - 1)}
-              className={cn("text-[9px] font-bold text-white/30 hover:text-white transition-colors uppercase tracking-widest", step === 1 && "opacity-0 invisible")}
+              className={cn("text-[9px] font-bold text-white/30 hover:text-white transition-colors uppercase tracking-widest", (step === 1 || isValidating) && "opacity-0 invisible")}
             >
               Previous
             </button>
             <button 
-              disabled={step === 1 ? !data.name : step === 2 ? !data.role : !data.groupName}
+              disabled={step === 1 ? !data.name : step === 2 ? !data.role : (!data.groupName || isValidating)}
               onClick={next}
               className="px-8 py-3 bg-white text-black rounded-sm font-bold text-[10px] uppercase tracking-[0.2em] hover:bg-white/90 disabled:opacity-20 transition-all"
             >
-              {step === 3 ? "Initialize" : "Proceed"}
+              {step === 3 ? (isValidating ? "Validating..." : "Initialize") : "Proceed"}
             </button>
          </div>
       </div>
@@ -905,8 +1045,8 @@ function Onboarding({ user, onComplete }: any) {
 
 // --- Alignment Search Component ---
 
-function AlignmentSearch({ users, availability, selectedUserIds, viewDate }: any) {
-  const [selectedHour, setSelectedHour] = useState(10);
+function AlignmentSearch({ users, availability, selectedUserIds, viewDate, hours, formatHour }: any) {
+  const [selectedHour, setSelectedHour] = useState(hours[0] || 10);
   
   const todayStr = format(viewDate, 'yyyy-MM-dd');
   const relevantUsers = users.filter((u: any) => selectedUserIds.size === 0 || selectedUserIds.has(u.uid));
@@ -929,8 +1069,8 @@ function AlignmentSearch({ users, availability, selectedUserIds, viewDate }: any
             onChange={(e) => setSelectedHour(Number(e.target.value))}
             className="bg-transparent text-[10px] font-bold text-white uppercase tracking-widest focus:outline-none w-full"
           >
-            {Array.from({ length: 15 }).map((_, i) => (
-              <option key={i + 7} value={i + 7} className="bg-black">{i + 7}:00 - {i + 8}:00</option>
+            {hours.map((h: number) => (
+              <option key={h} value={h} className="bg-black">{formatHour(h)} - {formatHour(h + 1)}</option>
             ))}
           </select>
         </div>
@@ -1074,7 +1214,7 @@ function MonthCalendar({ viewDate, setViewDate, availability, usersCount }: any)
 
 // --- The Matrix View ---
 
-function MatrixView({ users, availability, currentUserId, viewDate, setViewDate, viewMode, setViewMode, direction, userProfile, hours, overlaps, selectedUserIds, setSelectedUserIds }: any) {
+function MatrixView({ users, availability, currentUserId, viewDate, setViewDate, viewMode, setViewMode, direction, userProfile, hours, formatHour, overlaps, selectedUserIds, setSelectedUserIds }: any) {
   const [hoveredSlot, setHoveredSlot] = useState<any>(null);
   
   const toggleUserSelection = (userId: string) => {
@@ -1296,7 +1436,7 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
                 hours.map(h => (
                   <th key={h} className="p-4 min-w-[80px] border-r border-white/5 text-center bg-white/[0.02]">
                     <p className="text-[10px] font-mono font-black text-white/70 tracking-tighter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
-                      {h}:00
+                      {formatHour(h)}
                     </p>
                   </th>
                 ))
@@ -1386,7 +1526,7 @@ function MatrixView({ users, availability, currentUserId, viewDate, setViewDate,
                           
                           {hoveredSlot?.user.uid === user.uid && hoveredSlot?.h === h && (
                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-white text-black z-50 shadow-2xl pointer-events-none min-w-[120px] rounded-sm">
-                                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">{h}:00 - {h + 1}:00</p>
+                                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">{formatHour(h)} - {formatHour(h + 1)}</p>
                                 <p className="text-[10px] font-bold uppercase tracking-widest">{slot ? 'Available' : 'Unavailable'}</p>
                              </div>
                           )}
@@ -1464,6 +1604,13 @@ function SettingsView({ userProfile, onBack }: { userProfile: any, onBack: () =>
     setIsSaving(true);
     setMessage('');
     try {
+      if (formData.groupId !== userProfile.groupId) {
+        const isMaster = formData.groupId === 'talkware2026';
+        const isValid = isMaster || await validateTeamCode(formData.groupId);
+        if (!isValid) {
+          throw new Error('Invalid Team Access Code. Please check with your administrator.');
+        }
+      }
       await updateProfile(userProfile.uid, formData);
       setMessage('Profile updated successfully.');
       setTimeout(onBack, 1500);
@@ -1528,8 +1675,8 @@ function SettingsView({ userProfile, onBack }: { userProfile: any, onBack: () =>
           <div className="p-8 bg-vivid-blue/5 border border-vivid-blue/20 rounded-sm space-y-4">
              <div className="flex items-center justify-between">
                 <div>
-                   <h3 className="text-xs font-display uppercase tracking-widest text-vivid-blue mb-1">Team Access Cluster</h3>
-                   <p className="text-[9px] text-vivid-blue/40 uppercase font-black">Warning: Changing this moves you to a different shared network.</p>
+                   <h3 className="text-xs font-display uppercase tracking-widest text-vivid-blue mb-1">Team Access Code</h3>
+                   <p className="text-[9px] text-vivid-blue/40 uppercase font-black">Warning: Changing this moves you to a different shared network. Must be authorized by admin.</p>
                 </div>
              </div>
              <input 

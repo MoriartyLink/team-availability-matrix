@@ -265,3 +265,45 @@ export const syncAllUsersInGroup = (groupId: string, callback: (data: any[]) => 
     (error) => handleFirestoreError(error, OperationType.LIST, path)
   );
 };
+
+export const createTeamCode = async (code: string, description: string) => {
+  const path = `teamCodes/${code}`;
+  try {
+    await setDoc(doc(db, 'teamCodes', code), {
+      code,
+      description,
+      createdAt: serverTimestamp(),
+      createdBy: auth.currentUser?.uid
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+};
+
+export const deleteTeamCode = async (code: string) => {
+  const path = `teamCodes/${code}`;
+  try {
+    await deleteDoc(doc(db, 'teamCodes', code));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
+export const syncTeamCodes = (callback: (codes: any[]) => void) => {
+  const path = 'teamCodes';
+  return onSnapshot(collection(db, path), 
+    (snapshot) => {
+      const codes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      callback(codes);
+    },
+    (error) => handleFirestoreError(error, OperationType.LIST, path)
+  );
+};
+
+export const validateTeamCode = async (code: string) => {
+  if (!code) return false;
+  const docRef = doc(db, 'teamCodes', code);
+  const snap = await getDoc(docRef);
+  return snap.exists();
+};
+
