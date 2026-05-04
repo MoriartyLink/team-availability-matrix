@@ -172,7 +172,9 @@ export default function App() {
   const hours = useMemo(() => Array.from({ length: 15 }).map((_, i) => i + 7), []); // 7 AM to 10 PM
   const todayStr = format(viewDate, 'yyyy-MM-dd');
 
-  const visibleUsers = useMemo(() => groupUsers.filter(u => !u.isHidden), [groupUsers]);
+  const visibleUsers = useMemo(() => {
+    return groupUsers.filter(u => !u.isHidden || u.uid === fUser?.uid);
+  }, [groupUsers, fUser?.uid]);
   const visibleUserIds = useMemo(() => new Set(visibleUsers.map(u => u.uid || u.id)), [visibleUsers]);
 
   const overlaps = useMemo(() => {
@@ -285,7 +287,7 @@ export default function App() {
            >
              <Layers className={cn("w-4 h-4 transition-transform", !showSidebar && "-rotate-90")} />
            </IconButton>
-           <h1 className="text-[11px] font-display font-bold uppercase tracking-[0.3em] hidden sm:block text-white">Sync Team</h1>
+           <h1 className="text-[11px] font-display font-bold uppercase tracking-[0.3em] hidden sm:block text-white">Team Sync App</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -600,7 +602,7 @@ function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-              className="p-8 bg-zinc-900/40 border border-white/5 rounded-sm group hover:border-red-500/40 transition-all backdrop-blur-3xl relative overflow-hidden"
+              className="p-8 bg-zinc-900/40 border border-white/5 rounded-sm group hover:border-red-500/40 transition-all backdrop-blur-3xl relative"
             >
               <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-100 transition-opacity">
                  <Users2 className="w-4 h-4 text-white" />
@@ -616,38 +618,43 @@ function AdminDashboard({ groupUsers, onBack }: { groupUsers: any[], onBack: () 
                 </div>
               </div>
               
-              <div className="space-y-4">
-                 <div className="flex items-center justify-between text-[9px] uppercase tracking-widest font-bold">
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                 <div className="flex items-center justify-between text-[11px] uppercase tracking-widest font-bold">
                     <span className="text-white/20">Ident:</span>
-                    <span className="text-white/40">{(user.id || user.uid || '').slice(0, 12)}</span>
+                    <span className="text-white/60 font-mono">{(user.id || user.uid || '').slice(0, 12)}</span>
                  </div>
-                 <div className="flex items-center justify-between text-[9px] uppercase tracking-widest font-bold">
-                    <span className="text-white/20">Status:</span>
-                    <span className="text-emerald-500/60">Verified {user.isHidden ? '(HIDDEN)' : ''}</span>
+                 <div className="flex items-center justify-between text-[11px] uppercase tracking-widest font-bold">
+                    <span className="text-white/20">Access:</span>
+                    <span className={cn("font-black", user.isHidden ? "text-red-500" : "text-emerald-500")}>
+                      {user.isHidden ? 'HIDDEN / OFFLINE' : 'VISIBLE / ACTIVE'}
+                    </span>
                  </div>
-                 <button 
-                   onClick={() => adminToggleUserVisibility(user.id || user.uid, !user.isHidden)}
-                   className={cn(
-                     "w-full py-4 mt-2 border text-[10px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm",
-                     user.isHidden
-                       ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-500/60 hover:bg-emerald-600 hover:text-white shadow-lg shadow-emerald-900/10"
-                       : "border-white/10 bg-white/5 text-white/40 hover:bg-white hover:text-black shadow-lg"
-                   )}
-                 >
-                   {user.isHidden ? 'Restore Visibility' : 'Hide from Team'}
-                 </button>
-                 <button 
-                   onClick={() => handleDeleteUser(user.id || user.uid)}
-                   disabled={isDeleting === (user.id || user.uid)}
-                   className={cn(
-                     "w-full py-4 mt-4 border text-[10px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm shadow-lg",
-                     isDeleting === (user.id || user.uid) 
-                       ? "bg-red-600 border-red-600 text-white animate-pulse cursor-wait"
-                       : "border-red-500/20 bg-red-500/5 text-red-500/60 hover:bg-red-600 hover:text-white hover:border-red-600 shadow-red-900/5"
-                   )}
-                 >
-                   {isDeleting === (user.id || user.uid) ? 'Bypassing...' : 'Terminate Subject'}
-                 </button>
+                 
+                 <div className="pt-6 flex flex-col gap-4">
+                    <button 
+                      onClick={() => adminToggleUserVisibility(user.id || user.uid, !user.isHidden)}
+                      className={cn(
+                        "w-full py-4 border text-[11px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm flex items-center justify-center gap-2",
+                        user.isHidden
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white"
+                          : "border-white/10 bg-white/5 text-white/50 hover:bg-white hover:text-black"
+                      )}
+                    >
+                      {user.isHidden ? 'Restore To Team Sync' : 'Hide from Team Sync'}
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteUser(user.id || user.uid)}
+                      disabled={isDeleting === (user.id || user.uid)}
+                      className={cn(
+                        "w-full py-4 border text-[11px] font-bold uppercase tracking-[0.2em] transition-all rounded-sm flex items-center justify-center gap-2",
+                        isDeleting === (user.id || user.uid) 
+                          ? "bg-red-600 border-red-600 text-white animate-pulse"
+                          : "border-red-500/20 bg-red-500/5 text-red-500/60 hover:bg-red-600 hover:text-white hover:border-red-600"
+                      )}
+                    >
+                      {isDeleting === (user.id || user.uid) ? 'DELETING...' : 'Terminate Subject'}
+                    </button>
+                 </div>
               </div>
             </motion.div>
           ))}
@@ -686,7 +693,7 @@ function LandingPage({ onLogin, isLoggingIn, error }: { onLogin: (data: { email:
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full glass p-12 border-white/10 rounded-sm relative z-10 shadow-2xl backdrop-blur-3xl"
       >
-        <h1 className="text-2xl font-display uppercase tracking-[0.3em] text-white mb-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">Sync Team</h1>
+        <h1 className="text-2xl font-display uppercase tracking-[0.3em] text-white mb-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">Team Sync App</h1>
         <p className="text-white/40 mb-10 text-[10px] uppercase font-bold tracking-[0.2em] leading-relaxed">
           Liquid Intelligence / Team Synchronization
         </p>
